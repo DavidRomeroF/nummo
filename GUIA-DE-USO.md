@@ -1,8 +1,8 @@
-# Guía de uso — Dinero
+# Guía de uso — Nummo
 
 ## ¿Qué es esto y para qué sirve?
 
-**Dinero** es una app para apuntar y controlar tu dinero desde el móvil:
+**Nummo** es una app para apuntar y controlar tu dinero desde el móvil:
 
 - **Gastos e ingresos** del día a día (el súper, la nómina, una cena…).
 - **Tus cuentas**: todas las que quieras (bancos, tarjetas, efectivo, ahorro…), cada una con su saldo.
@@ -32,7 +32,7 @@ Instálala **antes de empezar a usarla**: así se abre a pantalla completa, func
 1. Abre la dirección de la app en **Safari**.
 2. Pulsa el botón **Compartir** (el cuadrado con una flecha hacia arriba).
 3. Elige **«Añadir a pantalla de inicio»** y confirma.
-4. Abre **Dinero** desde el nuevo icono de tu pantalla de inicio.
+4. Abre **Nummo** desde el nuevo icono de tu pantalla de inicio.
 
 > Importante en iPhone: lo que hagas en Safari y lo que hagas en la app instalada son **almacenes separados**. Si ya empezaste en Safari, haz una copia de seguridad allí y restáurala dentro de la app instalada.
 
@@ -40,14 +40,14 @@ Instálala **antes de empezar a usarla**: así se abre a pantalla completa, func
 
 1. Abre la dirección de la app en **Chrome**.
 2. Pulsa **«Instalar la app»** en la pantalla de bienvenida, o en el menú **⋮ → Instalar aplicación**.
-3. Abre **Dinero** desde su icono.
+3. Abre **Nummo** desde su icono.
 
 ## Cómo empezar, paso a paso
 
 1. En la bienvenida pulsa **Empezar**.
 2. **Crea un PIN de 6 números** y repítelo. No vale uno demasiado fácil (como 111111 o 123456).
 3. Escribe **cuánto tienes ahora** en cada cuenta. Puedes cambiar los nombres (por ejemplo «BBVA Nómina»), quitar las que no uses y añadir más.
-4. Pulsa **Empezar a usar Dinero**.
+4. Pulsa **Empezar a usar Nummo**.
 
 A partir de ahora, cada vez que abras la app te pedirá el PIN.
 
@@ -162,7 +162,7 @@ La app te recuerda hacer una copia si pasan más de 30 días.
 - Al empezar, pulsa **Restaurar una copia de seguridad**.
 - O ya dentro de la app, ve a **Más → Copia de seguridad → Restaurar copia**.
 
-Elige el archivo `dinero-copia-….json`, escribe su contraseña y confirma. Restaurar **sustituye todos los datos** que haya en la app.
+Elige el archivo `nummo-copia-….json`, escribe su contraseña y confirma. Restaurar **sustituye todos los datos** que haya en la app.
 
 ### Exportar a Excel o Numbers
 

@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-10-05 21:50 — Nuevo nombre y logo: Nummo
+
+Tipo: cambio | documentación
+
+Qué se hizo:
+- Nombre visible «Nummo»: manifest, título de la página y de cada pantalla, bienvenida, Acerca de,
+  avisos de error, guía de uso, documentación técnica y README.
+- Logo: la N de trazo continuo del logo recibido, redibujada en vectorial en tools/make_icons.py.
+  Medidas tomadas del original (355 px) y ajustadas superponiendo ambos dibujos: coinciden en el
+  98 % de los píxeles del trazo. Placa casi negra con degradado (#181818 → #090909) y trazo blanco
+  cálido (#F2EFEB). Iconos regenerados: apple-touch-icon (180), 192, 512, maskable e icon.svg.
+- La marca dentro de la app (bienvenida, PIN, Acerca de) usa el mismo icon.svg; en modo oscuro
+  lleva un filo fino para que la placa no se pierda sobre el fondo negro.
+- Archivos exportados: nummo-copia-AAAA-MM-DD.json y nummo-movimientos-AAAA-MM-DD.csv.
+- Identificadores internos unificados: IndexedDB «nummo» (tests: «nummo-test»), AAD nummo:dek:v1,
+  nummo:bucket:v1:<clave> y nummo:backup:v1, formato de copia «nummo-backup», clave de apariencia
+  «nummo:apariencia» y cachés «nummo-…».
+
+Por qué:
+Petición de la persona propietaria. Como la app aún no está publicada y nadie tiene datos, es el
+único momento en que renombrar los identificadores internos no exige migraciones.
+
+Archivos / recursos afectados:
+- tools/make_icons.py, app/icons/*
+- app/index.html, app/manifest.webmanifest, app/sw.js, app/css/app.css
+- app/js/main.js, theme-boot.js, core/backup.js, core/idb.js, core/vault.js, ui/shell.js, ui/theme.js,
+  ui/restore.js, views/screens.js, views/about.js, views/backup.js
+- tests/index.html, vault.test.js, store.test.js, backup.test.js; .claude/launch.json
+- README.md, GUIA-DE-USO.md, DOCUMENTACION-TECNICA.md, to-do.md
+
+Verificación:
+- 74/74 tests en verde; tools/release.py sin avisos (58 recursos).
+- En el navegador (tamaño iPhone, claro y oscuro): bienvenida y Acerca de con el logo, alta de PIN
+  y cuentas con la base de datos nueva, títulos «Inicio · Nummo», sin errores en consola.
+- Iconos revisados a 512 y 180 px frente al logo original.
+
+---
+
 ## 2026-10-05 21:20 — Última pasada de revisión: 8 correcciones más
 
 Tipo: seguridad | cambio | incidencia

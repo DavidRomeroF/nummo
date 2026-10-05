@@ -1,4 +1,6 @@
-# Dinero
+<img src="app/icons/icon.svg" alt="Logo de Nummo" width="96">
+
+# Nummo
 
 App web (PWA) para controlar tu dinero desde el móvil (iPhone y Android):
 
@@ -41,19 +43,23 @@ Sube la versión de la app y pasa las comprobaciones de seguridad.
 
 Primera publicación:
 
-1. Crea un repositorio **público** en GitHub, por ejemplo `dinero`.
+1. Crea un repositorio **público** en GitHub, por ejemplo `nummo`.
 2. Ve a **Settings → Pages → Source: GitHub Actions**.
 3. Sube el código:
 
    ```bash
-   git remote add origin https://github.com/<usuario>/dinero.git
+   git remote add origin https://github.com/<usuario>/nummo.git
    ```
 
    ```bash
    git push -u origin main
    ```
 
-4. La app quedará en `https://<usuario>.github.io/dinero/`. Ábrela en el móvil e instálala:
+   Sin Terminal: en GitHub Desktop, *File → Add Local Repository* y *Publish repository* desmarcando
+   «Keep this code private». Si la primera publicación sale en rojo en **Actions** (Pages aún no
+   estaba activado), pulsa **Re-run all jobs**.
+
+4. La app quedará en `https://<usuario>.github.io/nummo/`. Ábrela en el móvil e instálala:
    - **iPhone:** Compartir → Añadir a pantalla de inicio.
    - **Android:** menú ⋮ → Instalar aplicación.
 
@@ -61,4 +67,5 @@ Cada `git push` a `main` vuelve a publicar automáticamente.
 
 ## Créditos
 
-Iconos: [Tabler Icons](https://tabler.io/icons) (MIT), © 2020-2026 Paweł Kuna.
+Iconos de la interfaz: [Tabler Icons](https://tabler.io/icons) (MIT), © 2020-2026 Paweł Kuna.
+Logo de Nummo: N de trazo continuo, redibujada en vectorial con `tools/make_icons.py`.

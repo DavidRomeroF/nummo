@@ -26,14 +26,14 @@ export function initScreens(rootEl, readyCallback) {
 function screen(children, { top = false, onLeave = null } = {}) {
   cleanup?.();
   cleanup = onLeave;
-  document.title = 'Dinero';
+  document.title = 'Nummo';
   root.className = '';
   replace(root, h('div', { class: ['screen', top && 'top'] }, children));
   window.scrollTo(0, 0);
 }
 
 const lead = (title, text) => h('div', { class: 'lead' },
-  h('div', { class: 'app-mark', 'aria-hidden': 'true' }, icon('wallet')),
+  h('img', { class: 'app-logo', src: 'icons/icon.svg', alt: '' }),
   title,
   text);
 
@@ -45,7 +45,7 @@ export function showWelcome() {
   const iosBrowser = pwa.isIOS && !pwa.isStandalone;
   const off = onPwaChange(() => showWelcome());
   screen([
-    lead(h('h1', null, 'Dinero'), h('p', { class: 'text' }, 'Tus gastos, cuentas y deudas, en tu móvil y cifrados.')),
+    lead(h('h1', null, 'Nummo'), h('p', { class: 'text' }, 'Tus gastos, cuentas y deudas, en tu móvil y cifrados.')),
     h('ul', { class: 'benefits' },
       benefit('lock', 'Privado', 'Tus datos se guardan solo en este dispositivo. Sin servidores ni registros.'),
       benefit('shield-lock', 'Protegido', 'Un PIN abre la app y todo se guarda cifrado con AES-256.'),
@@ -296,6 +296,6 @@ function showAccountsSetup() {
       h('p', { class: 'text' }, 'Escribe cuánto tienes ahora en cada una. Luego podrás añadir más y cambiar su símbolo, iniciales y color.')),
     container,
     h('button', { type: 'button', class: 'btn', onClick: () => addEntry(null) }, icon('plus'), 'Añadir otra cuenta'),
-    h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary', onClick: finish }, 'Empezar a usar Dinero')),
+    h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary', onClick: finish }, 'Empezar a usar Nummo')),
   ], { top: true });
 }

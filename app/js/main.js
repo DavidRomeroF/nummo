@@ -172,11 +172,11 @@ function setupKeyboard() {
 async function boot() {
   initTheme(); // sigue los cambios del sistema en modo automático (theme-boot.js ya lo aplicó)
   if (window.top !== window.self) {
-    fatal('No disponible', 'Por seguridad, Dinero no funciona dentro de otra página.');
+    fatal('No disponible', 'Por seguridad, Nummo no funciona dentro de otra página.');
     return;
   }
   if (!isCryptoAvailable() || !window.indexedDB) {
-    fatal('Navegador no compatible', 'Abre Dinero desde su dirección segura (https://) en Safari o Chrome actualizados.');
+    fatal('Navegador no compatible', 'Abre Nummo desde su dirección segura (https://) en Safari o Chrome actualizados.');
     return;
   }
   initPwa();

@@ -80,7 +80,7 @@ function openCreateBackup() {
     }
   });
   saveBox.append(
-    notice({ iconName: 'circle-check', title: 'Copia lista', text: `Archivo: ${'dinero-copia-' + todayISO() + '.json'}. Guárdalo en Archivos, iCloud Drive o Google Drive.` }),
+    notice({ iconName: 'circle-check', title: 'Copia lista', text: `Archivo: ${'nummo-copia-' + todayISO() + '.json'}. Guárdalo en Archivos, iCloud Drive o Google Drive.` }),
     saveButton);
 
   const sheet = openSheet({
@@ -138,7 +138,7 @@ async function exportCsv() {
     confirmLabel: 'Exportar',
   });
   if (!confirmed) return;
-  if (await saveFile(toCSV(store.getState()), `dinero-movimientos-${todayISO()}.csv`, 'text/csv')) toast('CSV exportado');
+  if (await saveFile(toCSV(store.getState()), `nummo-movimientos-${todayISO()}.csv`, 'text/csv')) toast('CSV exportado');
 }
 
 export function backupView() {

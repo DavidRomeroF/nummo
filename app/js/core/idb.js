@@ -3,7 +3,7 @@
 
 const DB_VERSION = 1;
 const STORES = ['meta', 'vault'];
-let dbName = 'app-dinero';
+let dbName = 'nummo';
 let dbPromise = null;
 
 /** Solo para tests: usar otra base de datos. */

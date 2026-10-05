@@ -1,4 +1,4 @@
-/* Dinero — estilos. Sin dependencias ni fuentes externas.
+/* Nummo — estilos. Sin dependencias ni fuentes externas.
    Modo claro/oscuro: lo fija la app con data-theme en <html> (js/theme-boot.js y ui/theme.js),
    por defecto según el sistema. El color de acento elegido sobrescribe --accent* en línea. */
 
@@ -584,14 +584,16 @@ dialog.alert[open] { animation: alert-in 0.2s ease-out; }
 .screen .text { color: var(--text-2); font-size: 16px; }
 .screen .actions { display: grid; gap: 10px; width: 100%; }
 .screen .notice, .screen .form, .screen .card { width: 100%; text-align: left; }
+.app-logo { display: block; width: 72px; height: 72px; }
+:root[data-theme="dark"] .app-logo { border-radius: 16px; box-shadow: 0 0 0 1px var(--sep); } /* placa oscura sobre fondo negro */
 .app-mark {
   display: grid;
   place-items: center;
   width: 72px;
   height: 72px;
-  border-radius: 18px;
-  background: linear-gradient(160deg, #13A07A, #0B6E5B);
-  color: #fff;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #181818, #090909);
+  color: #F2EFEB;
 }
 .app-mark .icon { width: 42px; height: 42px; }
 .benefits { display: grid; gap: 14px; width: 100%; padding: 4px 0; margin: 0; list-style: none; text-align: left; }

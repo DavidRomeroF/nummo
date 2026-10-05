@@ -8,8 +8,8 @@
 
 ### Publicación (la hace la persona propietaria)
 
-- [ ] 🔴 [funcionalidad] Crear el repositorio público en GitHub, subir el código y activar Pages
-      (Settings → Pages → Source: GitHub Actions). Pasos en README.md y DOCUMENTACION-TECNICA.md §6.
+- [ ] 🔴 [funcionalidad] Crear el repositorio público en GitHub (nombre recomendado: `nummo`), subir el código
+      y activar Pages (Settings → Pages → Source: GitHub Actions). Pasos en README.md y DOCUMENTACION-TECNICA.md §6.
       Justificación: sin publicar no se puede instalar en el iPhone ni en Android.
 - [ ] 🟡 [funcionalidad] Primera prueba en el iPhone real: instalar desde Safari, crear el PIN, hacer una copia
       y guardarla en Archivos, y comprobar el teclado sobre las hojas.
@@ -43,6 +43,8 @@
       Justificación: hoy cada instalación es independiente; requeriría un servidor y cuentas de usuario.
 
 ## Completados
+
+- [x] 2026-10-05 — Nuevo nombre y logo: Nummo (iconos vectoriales a partir del logo; nombre en app, archivos y documentación).
 
 - [x] 2026-10-05 — Última pasada de revisión: 8 fallos más corregidos (borrar una cuenta ya no cambia el saldo de
       otras, foco al repintar y al cerrar hojas, confirmación al borrar un movimiento, espera del PIN con reloj

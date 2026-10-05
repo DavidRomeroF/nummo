@@ -9,7 +9,7 @@ const isValidation = (e) => e instanceof ValidationError;
 
 test('backup: crear y restaurar con la contraseña correcta', async () => {
   const { text, filename } = await createBackup(sampleState(), 'contraseña larga', FAST);
-  assert.equal(filename, 'dinero-copia-2026-10-05.json');
+  assert.equal(filename, 'nummo-copia-2026-10-05.json');
   assert.ok(!text.includes('Hermano') && !text.includes('Nómina'), 'el archivo no contiene datos legibles');
   const { data, exportedAt } = await openBackup(parseBackup(text), 'contraseña larga');
   const expected = sampleState();

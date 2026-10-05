@@ -4,7 +4,7 @@
 
 import { accentTokens, isHexColor } from '../core/color.js';
 
-const KEY = 'dinero:apariencia';
+const KEY = 'nummo:apariencia';
 const MODES = ['auto', 'light', 'dark'];
 const TOKEN_NAMES = ['--accent', '--accent-fill', '--on-accent', '--accent-bg'];
 

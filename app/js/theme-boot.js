@@ -2,7 +2,7 @@
 // así la app no parpadea de claro a oscuro al abrirse. La lógica completa está en ui/theme.js;
 // aquí solo se leen y validan los valores ya calculados.
 (function applySavedTheme() {
-  var KEY = 'dinero:apariencia';
+  var KEY = 'nummo:apariencia';
   var COLOR = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/;
   var NAMES = ['--accent', '--accent-fill', '--on-accent', '--accent-bg'];
   var saved = null;

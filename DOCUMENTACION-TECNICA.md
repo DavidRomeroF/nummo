@@ -1,8 +1,8 @@
-# Documentación técnica — Dinero
+# Documentación técnica — Nummo
 
 ## 1. Visión general
 
-**Dinero** es una aplicación web progresiva (PWA) de finanzas personales para iPhone y Android. Gestiona:
+**Nummo** es una aplicación web progresiva (PWA) de finanzas personales para iPhone y Android. Gestiona:
 
 - cuentas, gastos, ingresos y transferencias;
 - deudas («debo» / «me deben») con pagos parciales;
@@ -93,13 +93,13 @@ Accesibilidad de la interfaz (`ui/focus.js`, `ui/sheet.js`, `ui/pinpad.js`):
 ## 4. Estructura del proyecto
 
 ```
-App_Dinero/
+nummo/
 ├── app/                      ← lo único que se publica
 │   ├── index.html            CSP estricta (meta), Trusted Types, enlaces a manifest e iconos
 │   ├── manifest.webmanifest  instalación (standalone, iconos any + maskable)
 │   ├── sw.js                 service worker (bloque @generated por tools/release.py)
 │   ├── css/app.css           estilos (tokens claro/oscuro, componentes, gráficas)
-│   ├── icons/                icon.svg, icon-192/512.png, icon-maskable-512.png, apple-touch-icon.png
+│   ├── icons/                logo de Nummo: icon.svg, icon-192/512.png, icon-maskable-512.png, apple-touch-icon.png
 │   └── js/
 │       ├── main.js           arranque, rutas, ciclo de vida, bloqueo automático
 │       ├── theme-boot.js     aplica el tema guardado antes de pintar (script clásico)
@@ -126,7 +126,7 @@ App_Dinero/
 │   ├── serve.py              servidor local (127.0.0.1:8080, sin caché)
 │   ├── release.py            versión del service worker + comprobaciones de seguridad
 │   ├── fetch_icons.py        descarga de iconos Tabler fijados a una versión
-│   └── make_icons.py         iconos de la app (macOS: qlmanage + sips)
+│   └── make_icons.py         iconos de la app a partir del logo (N vectorial; macOS: qlmanage + sips)
 ├── .github/workflows/pages.yml  publicación en GitHub Pages
 ├── GUIA-DE-USO.md · DOCUMENTACION-TECNICA.md · README.md
 └── to-do.md · work.log       sugerencias pendientes y diario de trabajo
@@ -144,7 +144,7 @@ La app **no usa variables de entorno ni secretos**: no hay servidor, API ni clav
 |----------|-------------|-------------|----------------------|
 | `PORT` | Puerto de `tools/serve.py` (solo desarrollo) | No | `8080` |
 
-La **apariencia** se guarda por dispositivo y sin cifrar en `localStorage` (clave `dinero:apariencia`), porque es una preferencia visual y no un dato personal. Su formato es `{ mode, color, tokens: { light, dark } | null }`. No forma parte de las copias de seguridad.
+La **apariencia** se guarda por dispositivo y sin cifrar en `localStorage` (clave `nummo:apariencia`), porque es una preferencia visual y no un dato personal. Su formato es `{ mode, color, tokens: { light, dark } | null }`. No forma parte de las copias de seguridad.
 
 > En desarrollo, añade `?nosw` a la URL (`http://127.0.0.1:8080/app/?nosw`) para desactivar el service worker y ver los cambios al recargar.
 
@@ -236,7 +236,7 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
   - **Categoría:** sus movimientos pasan a la categoría que elija la persona.
   - **Deuda:** se borra con sus movimientos y programados.
 
-### Almacenamiento (IndexedDB «app-dinero»)
+### Almacenamiento (IndexedDB «nummo»)
 
 | Almacén | Clave | Valor |
 |---|---|---|
@@ -246,12 +246,12 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
 | `vault` | `core` | `{ iv, ct }`: cifrado de `{ version, settings, accounts, categories, debts, budgets, recurring }` |
 | `vault` | `mov-AAAA` | `{ iv, ct }`: cifrado de `{ movements }` de ese año |
 
-AAD de cada bloque: `app-dinero:bucket:v1:<clave>`. Impide intercambiar bloques cifrados entre sí.
+AAD de cada bloque: `nummo:bucket:v1:<clave>` (y `nummo:dek:v1` para la DEK). Impide intercambiar bloques cifrados entre sí.
 
-### Copia de seguridad (`dinero-copia-AAAA-MM-DD.json`)
+### Copia de seguridad (`nummo-copia-AAAA-MM-DD.json`)
 
 ```json
-{ "format": "app-dinero-backup", "version": 1,
+{ "format": "nummo-backup", "version": 1,
   "kdf": { "name": "PBKDF2", "hash": "SHA-256", "iterations": 600000, "salt": "<base64>" },
   "cipher": { "name": "AES-GCM", "iv": "<base64>" },
   "data": "<base64 de AES-GCM({ exportedAt, data })>" }
@@ -346,7 +346,7 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
 
 ## 10. Tests
 
-- **Ejecutar.** Arranca `python3 tools/serve.py` y abre http://127.0.0.1:8080/tests/. Usan una base de datos IndexedDB aparte, `app-dinero-test`.
+- **Ejecutar.** Arranca `python3 tools/serve.py` y abre http://127.0.0.1:8080/tests/. Usan una base de datos IndexedDB aparte, `nummo-test`.
 - **Qué cubren (74 tests).**
   - Interpretación y formato de importes.
   - Fechas: bisiestos, anclaje de día y cambios de mes y año.
@@ -391,6 +391,7 @@ Los pendientes y mejoras propuestas están en **[to-do.md](to-do.md)**. Los prin
 - **DOM.** Construye siempre con `h()`/`s()` de `ui/dom.js`. Nunca uses HTML como texto.
 - **Datos.** Toda escritura pasa por una función de `store.js`, que valida con `model.js`. Las vistas nunca modifican el estado directamente.
 - **Iconos.** Añádelos en `tools/fetch_icons.py` (y en `PICKER_ICONS` si son elegibles) y ejecuta el script.
+- **Logo e iconos de la app.** Salen de `tools/make_icons.py`: la N del logo está descrita con sus medidas (palos, diagonales a 45°, arcos y gancho) y se redibuja en vectorial. Cambia ahí los colores o el trazo y ejecuta el script en un Mac.
 - **Antes de cada commit:**
   1. tests en verde (`/tests/`);
   2. `python3 tools/release.py`;

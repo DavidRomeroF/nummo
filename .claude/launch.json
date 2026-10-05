@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "app-dinero",
+      "name": "nummo",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["tools/serve.py"],
       "port": 8080

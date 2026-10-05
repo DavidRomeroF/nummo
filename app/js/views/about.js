@@ -1,7 +1,6 @@
 // Acerca de: versión, privacidad, almacenamiento, instalación y licencias.
 
 import { h } from '../ui/dom.js';
-import { icon } from '../ui/icons.js';
 import { section } from '../ui/components.js';
 import { pwa } from '../ui/pwa.js';
 
@@ -28,10 +27,10 @@ export function aboutView() {
     body: [
       h('div', { class: 'card' },
         h('div', { class: 'card-head' },
-          h('div', null, h('p', { class: 'section-title' }, 'Dinero'), h('p', { class: 'muted' }, `Versión ${APP_VERSION}`)),
-          h('div', { class: 'app-mark', 'aria-hidden': 'true' }, icon('wallet')))),
+          h('div', null, h('p', { class: 'section-title' }, 'Nummo'), h('p', { class: 'muted' }, `Versión ${APP_VERSION}`)),
+          h('img', { class: 'app-logo', src: 'icons/icon.svg', alt: '' }))),
       section({ title: 'Privacidad' }, h('div', { class: 'card' },
-        h('p', null, 'Dinero no tiene servidores, no usa cookies ni analítica y no envía tus datos a ningún sitio. Todo se guarda cifrado solo en este dispositivo.'),
+        h('p', null, 'Nummo no tiene servidores, no usa cookies ni analítica y no envía tus datos a ningún sitio. Todo se guarda cifrado solo en este dispositivo.'),
         h('p', { class: 'muted' }, 'La web desde la que se descarga la app (GitHub Pages) puede registrar visitas técnicas, como cualquier web, pero nunca recibe tus datos.'))),
       section({ title: 'Almacenamiento' }, h('div', { class: 'card' }, storageInfo())),
       section({ title: 'Instalar en el móvil' }, h('div', { class: 'card' },

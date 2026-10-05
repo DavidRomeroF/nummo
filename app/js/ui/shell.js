@@ -92,7 +92,7 @@ function render() {
   window.scrollTo(0, y);
   if (samePath && focused) restoreFocus(root, focused); // el mismo botón tras repintar
   if (!samePath) {
-    document.title = `${view.title} · Dinero`;
+    document.title = `${view.title} · Nummo`;
     if (lastPath) root.querySelector('h1')?.focus({ preventScroll: true });
   }
   lastPath = route.path;

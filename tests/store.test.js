@@ -12,9 +12,9 @@ const PIN = '112233';
 const isValidation = (e) => e instanceof ValidationError;
 
 async function setup(data = sampleState()) {
-  idb.useDatabase('app-dinero-test');
+  idb.useDatabase('nummo-test');
   await idb.deleteDatabase();
-  idb.useDatabase('app-dinero-test');
+  idb.useDatabase('nummo-test');
   vault.setIterationsForTests(MIN_ITERATIONS);
   await vault.create(PIN, store.allBuckets(data));
   store.setState(data);

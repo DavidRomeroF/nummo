@@ -17,8 +17,8 @@ const META_KEY = 'vault';
 const LOCKOUT_KEY = 'lockout';
 const REVISION_KEY = 'revision';
 export { ConflictError } from './idb.js';
-const DEK_AAD = 'app-dinero:dek:v1';
-const bucketAad = (key) => `app-dinero:bucket:v1:${key}`;
+const DEK_AAD = 'nummo:dek:v1';
+const bucketAad = (key) => `nummo:bucket:v1:${key}`;
 
 export const PIN_LENGTH = 6;
 export const FREE_ATTEMPTS = 5;

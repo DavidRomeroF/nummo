@@ -4,15 +4,15 @@ import * as vault from '../app/js/core/vault.js';
 import { MIN_ITERATIONS } from '../app/js/core/crypto.js';
 
 async function freshVault(pin = '135790') {
-  idb.useDatabase('app-dinero-test');
+  idb.useDatabase('nummo-test');
   await idb.deleteDatabase();
-  idb.useDatabase('app-dinero-test');
+  idb.useDatabase('nummo-test');
   vault.setIterationsForTests(MIN_ITERATIONS);
   await vault.create(pin, new Map([['core', { hola: 'mundo secreto' }], ['mov-2026', { movements: [1, 2] }]]));
 }
 
 test('vault: crear, bloquear y desbloquear', async () => {
-  assert.equal(await (async () => { idb.useDatabase('app-dinero-test'); await idb.deleteDatabase(); idb.useDatabase('app-dinero-test'); return vault.status(); })(), 'new');
+  assert.equal(await (async () => { idb.useDatabase('nummo-test'); await idb.deleteDatabase(); idb.useDatabase('nummo-test'); return vault.status(); })(), 'new');
   await freshVault();
   assert.ok(vault.isUnlocked());
   assert.equal(await vault.status(), 'locked');

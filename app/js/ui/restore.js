@@ -27,7 +27,7 @@ export function restoreForm({ onOpened, submitLabel = 'Abrir copia' }) {
     error.textContent = '';
     const chosen = file.files?.[0];
     if (!chosen) {
-      error.textContent = 'Elige el archivo de la copia (dinero-copia-….json).';
+      error.textContent = 'Elige el archivo de la copia (nummo-copia-….json).';
       return;
     }
     if (chosen.size > MAX_BACKUP_BYTES) {
