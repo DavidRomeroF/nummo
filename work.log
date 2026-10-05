@@ -1,0 +1,197 @@
+# WORK LOG — Diario de acciones
+
+> Registro cronológico de TODO lo que se hace. La entrada más reciente, arriba.
+
+---
+
+## 2026-10-05 17:45 — Identidad de git y primer commit
+
+Tipo: decisión | seguridad
+
+Qué se hizo:
+Identidad de git configurada solo para este repositorio (no global): nombre
+«Ismael Arenas Martinez» y correo privado de GitHub (…@users.noreply.github.com).
+Primer commit con la estructura inicial y el núcleo de datos cifrados.
+
+Por qué:
+El repositorio será público (GitHub Pages gratuito): el correo noreply evita exponer el
+correo real en el historial. No había identidad configurada en el equipo.
+
+Archivos / recursos afectados:
+- .git/config (user.name, user.email)
+
+Verificación:
+git log muestra el autor con el correo noreply.
+
+---
+
+## 2026-10-05 17:37 — Núcleo de datos y cifrado (Hito 1, en curso)
+
+Tipo: cambio | seguridad
+
+Qué se hizo:
+- money.js: importes en céntimos enteros; parseAmount acepta formatos español e inglés
+  ("12,5", "1.234,56", "1,234.56") sin coma flotante y rechaza más de 2 decimales.
+- dates.js: fechas locales 'AAAA-MM-DD' sin zonas horarias; addMonths con día de anclaje
+  (una cuota del día 31 vuelve al 31 tras febrero).
+- ids.js: identificadores de 12 caracteres con crypto.getRandomValues (sin sesgo de módulo).
+- catalog.js: listas blancas de colores, iconos y tipos de cuenta; categorías iniciales.
+- text.js: saneado de texto (control, ancho cero y marcas de dirección fuera; emojis intactos).
+- model.js: normalizadores por entidad, validación del conjunto con integridad referencial
+  (modo estricto para copias, modo reparación para datos propios) y bloques 'core' + 'mov-AAAA'.
+- crypto.js: PBKDF2-SHA-256 (600.000 iteraciones) + AES-256-GCM con IV aleatorio y AAD.
+- idb.js: IndexedDB con transacciones atómicas, durabilidad 'strict' y un reintento si iOS
+  cierra la conexión en segundo plano.
+- vault.js: clave maestra aleatoria cifrada con la clave derivada del PIN; límite de intentos
+  (5 libres, después espera de 30 s que se duplica hasta 15 min); cambio de PIN sin recifrar datos.
+Corrección durante la revisión: en vault.openDek, un fallo al poner a cero el contador de
+intentos ya no se cuenta como PIN incorrecto.
+
+Por qué:
+Base de todo lo demás: corrección del dinero y cifrado desde el primer dato.
+
+Archivos / recursos afectados:
+- app/js/core/{money,dates,ids,catalog,text,model,crypto,idb,vault}.js
+
+Verificación:
+Pendiente: tests del núcleo en el navegador (siguiente paso del Hito 1).
+
+---
+
+## 2026-10-05 17:30 — Estructura del proyecto y herramientas
+
+Tipo: cambio
+
+Qué se hizo:
+- Repositorio git local (rama main) y carpetas app/, tests/, tools/, .github/workflows/.
+- .gitignore (incluye copias de seguridad y CSV para que nunca se suban datos personales).
+- tools/serve.py: servidor de desarrollo solo en 127.0.0.1, sin caché HTTP.
+- .claude/launch.json: arranque del servidor para la vista previa.
+- tools/fetch_icons.py: descarga de Tabler Icons fijado a v3.48.0 (MIT) desde el repositorio
+  oficial; solo acepta trazados geométricos validados. Se descartó la v3.49.0 por publicarse
+  el mismo día. «receipt-tax» se sustituyó por «receipt» (tenía partes rellenas).
+- app/js/ui/icon-data.js: 123 iconos generados (21 KB).
+
+Por qué:
+Entorno reproducible y sin dependencias de terceros en tiempo de ejecución.
+
+Archivos / recursos afectados:
+- .gitignore, .claude/launch.json, tools/serve.py, tools/fetch_icons.py, app/js/ui/icon-data.js
+
+Verificación:
+fetch_icons.py terminó sin errores (123 iconos); revisión manual de varios trazados.
+
+---
+
+## 2026-10-05 17:27 — Plan aprobado
+
+Tipo: decisión
+
+Qué se hizo:
+El usuario aprueba el plan v1 completo, incluido el soporte Android y que los pagos de deudas
+no cuenten como gasto en las estadísticas.
+
+Por qué:
+Cierre de la fase de planificación ("first time right").
+
+Archivos / recursos afectados:
+- to-do.md (plan), work.log
+
+Verificación:
+Aprobación explícita del usuario en el chat.
+
+---
+
+## 2026-10-05 17:30 — Aclaración: uso en Android y por otras personas
+
+Tipo: decisión
+
+Qué se hizo:
+El usuario pregunta si podrían usarla personas con Android. Respuesta: sí (la PWA funciona en
+Chrome para Android). Se propone incluir el soporte Android en la v1:
+- Botón «Instalar» propio (evento beforeinstallprompt de Chrome) e instrucciones según sistema.
+- Botón/gesto «atrás» de Android integrado con el historial (cierra ventanas antes de navegar).
+- Copia de seguridad por descarga cuando no haya menú Compartir con archivos.
+- Icono maskable, pruebas con tamaño Android y nota de privacidad.
+Supuesto actualizado: «un único usuario y dispositivo» pasa a «cada persona tiene su propia
+instalación independiente; los datos no se comparten ni salen de su móvil».
+
+Por qué:
+Incluirlo desde el diseño cuesta poco; añadirlo después obligaría a rehacer partes (navegación,
+copias, instalación).
+
+Archivos / recursos afectados:
+- to-do.md (Hitos 8 y 9, nueva sugerencia de sincronización)
+
+Verificación:
+Pendiente de aprobación del plan por el usuario.
+
+---
+
+## 2026-10-05 17:20 — Aclaraciones: iconos y varias cuentas bancarias
+
+Tipo: decisión
+
+Qué se hizo:
+El usuario pregunta si la app tiene iconos/símbolos y si admite varias cuentas de banco.
+Se propone (y se muestra una maqueta):
+- Cuentas ilimitadas de cualquier tipo, cada una con símbolo o iniciales (hasta 4 letras) y color.
+- Categorías con símbolo de línea y color editables.
+- Set de símbolos: Tabler Icons (MIT), solo los iconos usados, copiados dentro de la app.
+Se descarta usar SF Symbols de Apple (su licencia no cubre webs) y logotipos de bancos (marcas registradas).
+
+Por qué:
+Identificación visual rápida de cuentas y categorías sin depender de recursos externos (CSP 'self').
+
+Archivos / recursos afectados:
+- to-do.md (detalle del Hito 3)
+
+Verificación:
+Pendiente de aprobación del plan por el usuario.
+
+---
+
+## 2026-10-05 17:10 — Plan de acción v1 propuesto
+
+Tipo: decisión
+
+Qué se hizo:
+Redacción del plan de acción v1 (arquitectura, pantallas, seguridad, hitos, riesgos y
+criterios de aceptación) y creación de to-do.md y work.log en la raíz del proyecto.
+
+Por qué:
+Principio "first time right": validar el plan con el usuario antes de programar.
+
+Archivos / recursos afectados:
+- to-do.md
+- work.log
+
+Verificación:
+Pendiente de aprobación del usuario. No se ha escrito código.
+
+---
+
+## 2026-10-05 17:05 — Toma de requisitos
+
+Tipo: decisión
+
+Qué se hizo:
+Ronda de preguntas al usuario. Respuestas:
+- Almacenamiento: solo en el iPhone (sin servidor ni cuentas).
+- Funciones v1: gastos, ingresos, cuentas, transferencias, deudas que tengo con pagos
+  parciales, lo que me deben, presupuestos mensuales, movimientos recurrentes y gráficas.
+- Bloqueo: PIN + datos cifrados.
+- Publicación: GitHub Pages.
+Supuestos declarados (a confirmar con el plan): moneda única euro, interfaz en español,
+un único usuario y dispositivo, tema claro/oscuro automático, sin importación bancaria.
+Entorno detectado: macOS 26.5.2, Python 3.9.6, Git 2.50.1; sin Node/npm ni gh.
+
+Por qué:
+Las respuestas determinan la arquitectura (local-first, cifrado en cliente, hosting estático).
+La ausencia de Node favorece una app sin paso de compilación ni dependencias.
+
+Archivos / recursos afectados:
+- Carpeta del proyecto: /Users/ismaelarenasmartinez/Documents/Claude/App_Dinero (vacía al inicio)
+
+Verificación:
+Respuestas recogidas mediante el cuestionario.

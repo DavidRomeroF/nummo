@@ -1,0 +1,16 @@
+# Sistema
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Configuración local de Claude Code (permisos personales)
+.claude/settings.local.json
+
+# Secretos y datos personales: nunca al repositorio
+.env
+*.pem
+*.key
+dinero-copia-*.json
+*.csv
