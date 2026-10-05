@@ -8,12 +8,17 @@ import {
 import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { rerender } from '../ui/shell.js';
+import { registerViewReset } from '../ui/session.js';
 import * as store from '../core/store.js';
 import { ValidationError, LIMITS } from '../core/model.js';
 import { moveButtons } from './shared.js';
 
 let kind = 'expense';
 let sorting = false;
+registerViewReset(() => {
+  kind = 'expense';
+  sorting = false;
+});
 
 export function categoriesView() {
   const state = store.getState();

@@ -2,16 +2,59 @@
 // La ocurrencia k se calcula siempre desde la fecha de inicio (inicio + k·intervalo), nunca desde
 // la anterior: así una cuota del día 31 cae el 28/29 en febrero y vuelve al 31 en marzo.
 
-import { addDays, addMonths } from './dates.js';
+import { addDays, addMonths, parseISO } from './dates.js';
 
 export const MAX_GENERATED_PER_RUN = 500;
 
-/** Fecha de la ocurrencia número `index` (0 = fecha de inicio). */
+/**
+ * Fecha de la ocurrencia número `index` (0 = fecha de inicio). `anchorDay` (opcional) conserva un
+ * día 29-31 cuando la regla se reancló en un fin de mes recortado (p. ej. el 28 de febrero).
+ */
 export function occurrenceDate(rule, index) {
   const steps = index * rule.interval;
   if (rule.frequency === 'weekly') return addDays(rule.startDate, 7 * steps);
-  if (rule.frequency === 'monthly') return addMonths(rule.startDate, steps);
-  return addMonths(rule.startDate, 12 * steps); // yearly
+  const anchor = rule.anchorDay ?? undefined;
+  if (rule.frequency === 'monthly') return addMonths(rule.startDate, steps, anchor);
+  return addMonths(rule.startDate, 12 * steps, anchor); // yearly
+}
+
+const anchorOf = (rule) => rule.anchorDay ?? parseISO(rule.startDate).d;
+
+/** Fecha que se muestra como «próxima» al editar: en una regla pausada, la de su reanudación. */
+export function displayedNextDate(rule, today) {
+  return rule.active ? nextDate(rule) : occurrenceDate(rule, firstIndexFrom(rule, today));
+}
+
+/**
+ * Regla resultante de editar `current` con los datos del formulario (función pura: la usan el
+ * almacén al guardar y el formulario para avisar de lo que va a pasar, así nunca discrepan).
+ * input: { active, frequency, interval, nextDate, endDate, template, shownNextDate }
+ * - Solo se reancla si cambia la frecuencia, el intervalo o la fecha respecto a la que se MOSTRÓ
+ *   (si mientras tanto se generó una ocurrencia, no se duplica).
+ * - Al reanclar en la misma fecha mostrada se conserva el día de anclaje (29-31).
+ * - Al reanudar no se recuperan las fechas que pasaron durante la pausa.
+ */
+export function planRecurringUpdate(current, input, today) {
+  const shown = input.shownNextDate ?? displayedNextDate(current, today);
+  const dateChanged = input.nextDate !== shown;
+  const scheduleChanged = dateChanged || input.frequency !== current.frequency || input.interval !== current.interval;
+  const rule = {
+    ...current,
+    active: input.active !== false,
+    frequency: input.frequency,
+    interval: input.interval,
+    endDate: input.endDate ?? null,
+    template: input.template,
+  };
+  if (scheduleChanged) {
+    rule.startDate = input.nextDate;
+    rule.index = 0;
+    const keepAnchor = !dateChanged && rule.frequency !== 'weekly' && current.frequency !== 'weekly';
+    const anchor = keepAnchor ? anchorOf(current) : null;
+    rule.anchorDay = anchor && anchor !== parseISO(input.nextDate).d ? anchor : null;
+  }
+  if (rule.active && !current.active) rule.index = firstIndexFrom(rule, today);
+  return rule;
 }
 
 export const nextDate = (rule) => occurrenceDate(rule, rule.index);

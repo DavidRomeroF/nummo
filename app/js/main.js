@@ -7,7 +7,7 @@ import { mountShell, unmountShell, rerender } from './ui/shell.js';
 import { closeAllSheets } from './ui/sheet.js';
 import { toast, clearToasts } from './ui/toast.js';
 import { initPwa, checkForUpdate, requestPersistence, onPwaChange } from './ui/pwa.js';
-import { onSession } from './ui/session.js';
+import { onSession, resetViews, consumeAutoLockPause, isAutoLockPaused } from './ui/session.js';
 import { initScreens, showWelcome, showLock } from './views/screens.js';
 import { homeView } from './views/home.js';
 import { movementsView } from './views/movements.js';
@@ -30,8 +30,10 @@ import { todayISO } from './core/dates.js';
 
 const appRoot = document.getElementById('app');
 const html = document.documentElement;
-let hiddenAt = 0;
+let hiddenAt = 0; // reloj del sistema al salir de la app
+let hiddenAtMono = 0; // reloj monotónico (no se puede atrasar a mano)
 let lastRecurringDay = null;
+let locking = null;
 
 router.addRoute('/', homeView, 'inicio');
 router.addRoute('/movimientos', movementsView, 'movimientos');
@@ -59,7 +61,7 @@ const autoLockSeconds = () => store.getState()?.settings.autoLockSec ?? 60;
 /** Crea los movimientos programados pendientes (una vez al día como mucho). */
 function runRecurring() {
   const today = todayISO();
-  if (today === lastRecurringDay) return;
+  if (today === lastRecurringDay || !store.isLoaded()) return;
   lastRecurringDay = today;
   try {
     const created = store.runRecurring(today);
@@ -71,45 +73,70 @@ function runRecurring() {
 
 function enterApp() {
   lastRecurringDay = null;
+  resetViews(); // cada sesión empieza en el mes actual, sin filtros ni búsquedas
   mountShell(appRoot);
   runRecurring();
   requestPersistence();
 }
 
-async function lockApp() {
-  if (!vault.isUnlocked()) return;
-  try {
-    await store.flush();
-  } catch {
-    /* el fallo ya se ha avisado; se bloquea igualmente */
-  }
-  closeAllSheets();
-  clearToasts();
-  unmountShell();
-  vault.lock();
-  store.unload();
-  html.classList.remove('private');
-  showLock();
+/**
+ * Bloquea: guarda lo pendiente (con un reintento), cierra hojas y alertas sin animación, vacía las
+ * vistas y olvida la clave. `notice` se muestra en la pantalla del PIN (y evita guardar: se usa
+ * cuando los datos de esta ventana ya no son los últimos).
+ */
+function lockApp({ notice = null } = {}) {
+  if (!vault.isUnlocked()) return locking ?? Promise.resolve();
+  locking ??= (async () => {
+    let warning = notice;
+    if (!warning) {
+      try {
+        await store.flush();
+      } catch {
+        try {
+          await store.flush();
+        } catch {
+          warning = 'No se han podido guardar los últimos cambios. Comprueba que el móvil tiene espacio libre.';
+        }
+      }
+    }
+    closeAllSheets({ immediate: true });
+    clearToasts();
+    unmountShell();
+    resetViews(); // también olvida textos de búsqueda escritos
+    vault.lock();
+    store.unload();
+    await showLock({ warning });
+    html.classList.remove('private'); // solo cuando ya no queda nada de la sesión a la vista
+  })().finally(() => {
+    locking = null;
+  });
+  return locking;
 }
 
 function setupLifecycle() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       hiddenAt = Date.now();
+      hiddenAtMono = performance.now();
       if (vault.isUnlocked()) {
         html.classList.add('private'); // oculta los datos en el selector de apps
         store.flush().catch(() => {});
-        if (autoLockSeconds() === 0) lockApp();
+        if (autoLockSeconds() === 0 && !isAutoLockPaused()) lockApp();
       }
       return;
     }
-    const awayMs = hiddenAt ? Date.now() - hiddenAt : 0; // sin un «oculto» previo no cuenta
+    const wallMs = hiddenAt ? Date.now() - hiddenAt : null; // sin un «oculto» previo no cuenta
+    const monoMs = hiddenAt ? performance.now() - hiddenAtMono : null;
     hiddenAt = 0;
-    if (vault.isUnlocked()) {
-      if (awayMs > 0 && awayMs >= autoLockSeconds() * 1000) {
+    const paused = consumeAutoLockPause(); // vuelta de un selector de archivos o de Compartir
+    if (vault.isUnlocked() && wallMs !== null && !paused) {
+      // Si el reloj del sistema se atrasó no se puede saber cuánto tiempo pasó: se bloquea.
+      if (wallMs < 0 || Math.max(wallMs, monoMs) >= autoLockSeconds() * 1000) {
         lockApp();
         return;
       }
+    }
+    if (vault.isUnlocked()) {
       html.classList.remove('private');
       runRecurring();
     }
@@ -155,13 +182,19 @@ async function boot() {
   setupKeyboard();
   store.onSaveError((error) => {
     console.error(error);
+    if (error?.name === 'ConflictError') {
+      // Otra ventana o pestaña de la app guardó después: estos datos ya no son los últimos.
+      lockApp({ notice: 'La app se ha usado en otra ventana. Vuelve a introducir el PIN para ver los datos actualizados.' });
+      return;
+    }
     toast('No se han podido guardar los últimos cambios. Se volverá a intentar.', { kind: 'error' });
   });
   initScreens(appRoot, enterApp);
   onSession('lock', lockApp);
   onSession('reset', () => {
-    closeAllSheets();
+    closeAllSheets({ immediate: true });
     unmountShell();
+    resetViews();
     store.unload();
     showWelcome();
   });

@@ -3,6 +3,7 @@
 
 import { h } from './dom.js';
 import { field, errorText } from './components.js';
+import { pauseAutoLock } from './session.js';
 import { parseBackup, openBackup, BackupPasswordError, MAX_BACKUP_BYTES } from '../core/backup.js';
 import { ValidationError } from '../core/model.js';
 
@@ -11,8 +12,18 @@ export function restoreForm({ onOpened, submitLabel = 'Abrir copia' }) {
   const password = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'Contraseña de la copia', enterkeyhint: 'go' });
   const error = errorText();
   const button = h('button', { type: 'button', class: 'btn primary' }, submitLabel);
+  let busy = false;
+
+  // El selector de archivos del sistema saca a la persona de la app: que no se bloquee entretanto.
+  file.addEventListener('click', () => {
+    const resume = pauseAutoLock();
+    const done = () => setTimeout(resume, 1000); // tras volver a la app (visibilitychange llega antes)
+    file.addEventListener('change', done, { once: true });
+    file.addEventListener('cancel', done, { once: true });
+  });
 
   async function submit() {
+    if (busy) return; // ni doble toque ni Intro repetido
     error.textContent = '';
     const chosen = file.files?.[0];
     if (!chosen) {
@@ -28,6 +39,7 @@ export function restoreForm({ onOpened, submitLabel = 'Abrir copia' }) {
       password.focus();
       return;
     }
+    busy = true;
     button.setAttribute('aria-busy', 'true');
     button.textContent = 'Comprobando…';
     try {
@@ -42,6 +54,7 @@ export function restoreForm({ onOpened, submitLabel = 'Abrir copia' }) {
         error.textContent = 'No se ha podido leer el archivo.';
       }
     } finally {
+      busy = false;
       button.removeAttribute('aria-busy');
       button.textContent = submitLabel;
     }

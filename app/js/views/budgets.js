@@ -2,28 +2,17 @@
 
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { section, list, tile, progress, amountInput, errorText, categoryGrid, emptyState } from '../ui/components.js';
+import { section, list, amountInput, errorText, categoryGrid, emptyState } from '../ui/components.js';
 import { lookups, monthLabel } from '../ui/format.js';
 import { openSheet } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import * as store from '../core/store.js';
 import { ValidationError } from '../core/model.js';
-import { formatMoney } from '../core/money.js';
 import { currentMonthKey } from '../core/dates.js';
+import { BUDGET_WARN_RATIO } from '../core/finance.js';
+import { budgetItem } from './shared.js';
 
-function budgetItem(b, category) {
-  const badge = b.level === 'over' ? ['danger', 'Superado'] : b.level === 'warn' ? ['warn', `${Math.round(b.ratio * 100)} %`] : ['ok', `${Math.round(b.ratio * 100)} %`];
-  return h('button', { type: 'button', class: 'budget row', onClick: () => openBudgetForm({ categoryId: b.categoryId, amount: b.amount }) },
-    h('span', { class: 'row-main' },
-      h('span', { class: 'budget-top' },
-        category ? tile(category, 'sm') : tile({ icon: 'target', color: 'graphite' }, 'sm'),
-        h('span', { class: 'row-main row-title' }, category?.name ?? 'Total del mes'),
-        h('span', { class: ['badge', badge[0]] }, badge[1])),
-      progress(b.ratio, b.level, `Gastado del presupuesto de ${category?.name ?? 'total'}`),
-      h('span', { class: 'budget-meta' },
-        h('span', null, `${formatMoney(b.spent)} de ${formatMoney(b.amount)}`),
-        h('span', { class: b.remaining < 0 ? 'neg' : '' }, b.remaining < 0 ? `${formatMoney(-b.remaining)} de más` : `Quedan ${formatMoney(b.remaining)}`))));
-}
+const editable = (b, category) => budgetItem(b, category, { onClick: () => openBudgetForm({ categoryId: b.categoryId, amount: b.amount }) });
 
 export function budgetsView() {
   const state = store.getState();
@@ -37,14 +26,14 @@ export function budgetsView() {
     title: 'Presupuestos',
     back: { label: 'Más', path: '/mas' },
     body: [
-      h('p', { class: 'caption' }, `Límites que se reinician cada mes. Datos de ${monthLabel(monthKey)}. Te aviso al llegar al 80 %.`),
+      h('p', { class: 'caption' }, `Límites que se reinician cada mes. Datos de ${monthLabel(monthKey)}. Te aviso al llegar al ${Math.round(BUDGET_WARN_RATIO * 100)} %.`),
       section({ title: 'Total del mes' },
         total
-          ? h('ul', { class: 'list' }, h('li', null, budgetItem(total, null)))
+          ? list([editable(total, null)])
           : h('button', { type: 'button', class: 'btn', onClick: () => openBudgetForm({ categoryId: null }) }, icon('plus'), 'Fijar un límite total')),
       section({ title: 'Por categoría' },
         perCategory.length
-          ? h('ul', { class: 'list' }, perCategory.map((b) => h('li', null, budgetItem(b, look.categories.get(b.categoryId)))))
+          ? list(perCategory.map((b) => editable(b, look.categories.get(b.categoryId))))
           : h('div', { class: 'card' }, emptyState('target', 'Sin presupuestos por categoría', 'Por ejemplo: 300 € al mes en restaurantes.')),
         h('button', { type: 'button', class: 'btn', onClick: chooseCategory }, icon('plus'), 'Añadir presupuesto')),
     ],

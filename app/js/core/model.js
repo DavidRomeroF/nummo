@@ -14,7 +14,8 @@ export const SCHEMA_VERSION = 1;
 export const CORE_BUCKET = 'core';
 export const LIMITS = {
   name: 40, note: 140,
-  accounts: 100, categories: 300, debts: 1000, budgets: 300, recurring: 300, movements: 300_000,
+  // 100.000 movimientos ≈ 10 al día durante 27 años; la copia cabe en MAX_BACKUP_BYTES (backup.js).
+  accounts: 100, categories: 300, debts: 1000, budgets: 300, recurring: 300, movements: 100_000,
 };
 export const MOVEMENT_TYPES = ['expense', 'income', 'transfer', 'debt'];
 export const DEBT_KINDS = ['owe', 'owed']; // debo / me deben
@@ -158,6 +159,7 @@ export function normalizeRecurring(raw) {
     startDate: raw.startDate,
     index,
     endDate: raw.endDate ?? null,
+    anchorDay: Number.isInteger(raw.anchorDay) && raw.anchorDay >= 29 && raw.anchorDay <= 31 ? raw.anchorDay : null,
     template: normalizeMovementFields(raw.template, what),
   };
 }

@@ -231,7 +231,8 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
 | Almacén | Clave | Valor |
 |---|---|---|
 | `meta` | `vault` | `{ v, kdf: { name, hash, iterations, salt }, dek: { iv, ct } }`: la DEK cifrada con la clave derivada del PIN |
-| `meta` | `lockout` | `{ failures, until }` (sin cifrar; no es un secreto) |
+| `meta` | `lockout` | `{ failures, until }` (sin cifrar; no es un secreto). Se actualiza en una sola transacción: varios intentos simultáneos cuentan todos |
+| `meta` | `revision` | Marca aleatoria de la última escritura. Cada guardado comprueba que sigue siendo la que esta ventana cargó; si otra ventana o pestaña escribió después, se rechaza (`ConflictError`) y la app se bloquea para recargar los datos |
 | `vault` | `core` | `{ iv, ct }`: cifrado de `{ version, settings, accounts, categories, debts, budgets, recurring }` |
 | `vault` | `mov-AAAA` | `{ iv, ct }`: cifrado de `{ movements }` de ese año |
 
@@ -269,6 +270,9 @@ Formato pensado para Excel en español:
   - Cambiar el PIN solo vuelve a cifrar la DEK.
 - **Bloqueo automático y privacidad.**
   - Se bloquea al pasar a segundo plano según el ajuste (por defecto, 1 minuto).
+  - El tiempo fuera de la app se mide con el reloj del sistema y con un reloj monotónico. Si el reloj del sistema se atrasa, se bloquea igualmente.
+  - El bloqueo se pausa unos minutos solo mientras está abierto el selector de archivos o el menú Compartir, que abre la propia app.
+  - Al bloquear se cierran al instante todas las hojas y alertas. Las alertas se cierran como «Cancelar».
   - Al ocultarse, la app y las hojas quedan invisibles para la captura del selector de apps.
 - **Contenido y XSS.**
   - Todo el DOM se construye con `createElement`/`textContent` (`ui/dom.js`). No hay `innerHTML`.
@@ -292,6 +296,7 @@ Formato pensado para Excel en español:
   - Integridad referencial y límites de cantidad.
   - Las copias se validan en modo estricto, con un tamaño máximo de 25 MB y un rango de iteraciones acotado (100.000–5.000.000) para evitar abusos.
 - **CSV seguro.** Los textos que empiezan por `= + - @` se neutralizan, para evitar la inyección de fórmulas.
+- **Varias ventanas a la vez.** Las escrituras van protegidas por la marca `revision`, así que una ventana con datos antiguos nunca sobrescribe a otra.
 - **Acciones destructivas.**
   - Hay que escribir «BORRAR» para borrar todos los datos.
   - Todos los borrados piden confirmación; borrar un movimiento se puede deshacer.
@@ -330,7 +335,7 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
 ## 10. Tests
 
 - **Ejecutar.** Arranca `python3 tools/serve.py` y abre http://127.0.0.1:8080/tests/. Usan una base de datos IndexedDB aparte, `app-dinero-test`.
-- **Qué cubren (65 tests).**
+- **Qué cubren (74 tests).**
   - Interpretación y formato de importes.
   - Fechas: bisiestos, anclaje de día y cambios de mes y año.
   - Validación del modelo en modo estricto y de reparación, integridad referencial y saneado.
@@ -341,6 +346,12 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
   - Almacén: persistencia, cascadas, deshacer, programados y restauración.
   - Copias: ida y vuelta, contraseña incorrecta, archivos manipulados o inválidos y CSV.
   - Color: contraste WCAG, ida y vuelta OKLCH y legibilidad garantizada con 12 colores extremos en claro y oscuro.
+  - Regresión de la revisión de código:
+    - programados: día de anclaje, formulario abierto mientras se genera una cuota, reanudación sin recuperar la pausa;
+    - escrituras de otra ventana y restauración fallida que conserva los cambios;
+    - limpieza de bloques vacíos al reparar;
+    - intentos de PIN simultáneos;
+    - totales de deudas pagadas de más.
 - **Comprobaciones automáticas de código.** `python3 tools/release.py --check`, también en GitHub Actions.
 - **Pruebas manuales hechas en el navegador:**
   - recorrido completo con tamaño iPhone y Android, en modo claro y oscuro;

@@ -5,6 +5,7 @@ import { icon } from '../ui/icons.js';
 import { section, list, row, tile, segmented, progress, emptyState } from '../ui/components.js';
 import { lookups, dueText, shortDate, DEBT_FLOW_LABELS } from '../ui/format.js';
 import { rerender } from '../ui/shell.js';
+import { registerViewReset } from '../ui/session.js';
 import * as router from '../ui/router.js';
 import * as store from '../core/store.js';
 import { formatMoney, formatSigned } from '../core/money.js';
@@ -13,11 +14,14 @@ import { openDebtForm, openDebtMovementForm } from './debt-forms.js';
 import { debtRow, debtBadge, compareNewest } from './shared.js';
 
 let tab = 'owe';
+registerViewReset(() => {
+  tab = 'owe';
+});
 
 function byUrgency(a, b) {
   const da = a.debt.dueDate ?? '9999-12-31';
   const db = b.debt.dueDate ?? '9999-12-31';
-  return da === db ? b.totals.pending - a.totals.pending : da < db ? -1 : 1;
+  return da === db ? b.totals.pending - a.totals.pending : da.localeCompare(db);
 }
 
 export function debtsView() {
@@ -25,7 +29,7 @@ export function debtsView() {
   const totals = store.derived().summary.debtTotals;
   const items = state.debts.filter((d) => d.kind === tab).map((debt) => ({ debt, totals: totals.get(debt.id) }));
   const pending = items.filter((x) => x.totals.pending > 0).sort(byUrgency);
-  const settled = items.filter((x) => x.totals.pending <= 0).sort((a, b) => ((a.totals.lastDate ?? '') < (b.totals.lastDate ?? '') ? 1 : -1));
+  const settled = items.filter((x) => x.totals.pending <= 0).sort((a, b) => (b.totals.lastDate ?? '').localeCompare(a.totals.lastDate ?? ''));
   const total = pending.reduce((sum, x) => sum + x.totals.pending, 0);
   const open = (debt) => () => router.navigate(`/deudas/${debt.id}`);
   const owe = tab === 'owe';

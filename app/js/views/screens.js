@@ -124,7 +124,8 @@ const mmss = (ms) => {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };
 
-export async function showLock() {
+/** Pantalla del PIN. `warning`: aviso a mostrar (p. ej. cambios que no se pudieron guardar). */
+export async function showLock({ warning = null } = {}) {
   let timer = null;
   const pad = pinPad({ onComplete: tryUnlock });
   const countdown = (until) => {
@@ -147,12 +148,9 @@ export async function showLock() {
   async function tryUnlock(pin) {
     pad.setBusy(true);
     pad.info('Comprobando…');
+    let buckets;
     try {
-      const buckets = await vault.unlock(pin);
-      const dropped = store.loadFromBuckets(buckets);
-      clearInterval(timer);
-      onReady();
-      if (dropped) toast(`Se han descartado ${dropped} elementos dañados.`, { kind: 'error' });
+      buckets = await vault.unlock(pin);
     } catch (error) {
       pad.setBusy(false);
       if (error instanceof vault.LockedOutError) {
@@ -166,11 +164,25 @@ export async function showLock() {
         console.error(error);
         pad.error('No se han podido abrir tus datos.');
       }
+      return;
+    }
+    try {
+      const dropped = store.loadFromBuckets(buckets);
+      clearInterval(timer);
+      onReady();
+      if (dropped) toast(`Se han descartado ${dropped} elementos dañados.`, { kind: 'error' });
+    } catch (error) {
+      // PIN correcto pero datos que no se pueden cargar: la clave no se queda en memoria.
+      console.error(error);
+      vault.lock();
+      store.unload();
+      pad.error(error instanceof ValidationError ? error.message : 'No se han podido abrir tus datos.');
     }
   }
 
   screen([
     lead(h('h1', null, 'Introduce tu PIN'), null),
+    warning ? notice({ iconName: 'alert-triangle', kind: 'warn', text: warning }) : null,
     pad.el,
     h('button', { type: 'button', class: 'btn-text', onClick: forgotPin }, '¿Has olvidado el PIN?'),
   ], { onLeave: () => clearInterval(timer) });

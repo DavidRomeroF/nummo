@@ -18,8 +18,6 @@ function apply(el, props) {
     } else if (key.startsWith('on')) {
       if (typeof raw !== 'function') throw new TypeError(`El manejador ${key} debe ser una función`);
       el.addEventListener(key.slice(2).toLowerCase(), raw);
-    } else if (key === 'text') {
-      el.textContent = raw;
     } else if (key === 'checked' || key === 'disabled' || key === 'hidden' || key === 'selected' || key === 'open') {
       el[key] = true;
     } else {

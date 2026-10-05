@@ -2,8 +2,11 @@
 // La DEK solo se guarda cifrada con una clave derivada del PIN (KEK). Si el PIN es incorrecto,
 // AES-GCM no puede descifrar la DEK: no hace falta guardar ningún "hash" del PIN.
 // Mientras la app está desbloqueada la DEK vive solo en memoria y no es extraíble.
+// Cada escritura comprueba una marca de revisión: si otra pestaña o ventana de la app escribió
+// después de que esta cargara los datos, se rechaza (ConflictError) en vez de pisarlos.
 
 import * as idb from './idb.js';
+import { newId } from './ids.js';
 import {
   DEFAULT_ITERATIONS, SALT_BYTES, randomBytes, deriveKey, importAesKey,
   encryptBytes, decryptBytes, encryptJSON, decryptJSON,
@@ -12,6 +15,8 @@ import { isBucketKey } from './model.js';
 
 const META_KEY = 'vault';
 const LOCKOUT_KEY = 'lockout';
+const REVISION_KEY = 'revision';
+export { ConflictError } from './idb.js';
 const DEK_AAD = 'app-dinero:dek:v1';
 const bucketAad = (key) => `app-dinero:bucket:v1:${key}`;
 
@@ -38,6 +43,7 @@ export class LockedOutError extends Error {
 }
 
 let dek = null;
+let revision; // marca de la última escritura que conoce esta instancia
 let kdfIterations = DEFAULT_ITERATIONS;
 
 /** Solo para tests: menos iteraciones para que la batería de pruebas sea rápida. */
@@ -91,10 +97,15 @@ async function openDek(pin) {
   try {
     raw = await decryptBytes(kek, meta.dek, DEK_AAD);
   } catch {
-    const failures = lockout.failures + 1;
-    const delay = delayAfter(failures);
-    const until = delay ? Date.now() + delay : 0;
-    await idb.put('meta', LOCKOUT_KEY, { failures, until });
+    // Lectura y escritura en una sola transacción: varios intentos a la vez cuentan todos.
+    let failures = 0;
+    let until = 0;
+    await idb.update('meta', LOCKOUT_KEY, (value) => {
+      failures = (Number.isSafeInteger(value?.failures) ? value.failures : 0) + 1;
+      const delay = delayAfter(failures);
+      until = delay ? Date.now() + delay : 0;
+      return { failures, until };
+    });
     throw new WrongPinError(until, failures);
   }
   if (lockout.failures > 0) await idb.put('meta', LOCKOUT_KEY, { failures: 0, until: 0 });
@@ -116,8 +127,10 @@ export async function create(pin, buckets) {
     const meta = await wrapDek(pin, dekRaw);
     const key = await importAesKey(dekRaw);
     const vault = await encryptBuckets(key, buckets);
-    await idb.replaceAll({ meta: [[META_KEY, meta]], vault });
+    const token = newId();
+    await idb.replaceAll({ meta: [[META_KEY, meta], [REVISION_KEY, token]], vault });
     dek = key;
+    revision = token;
   } finally {
     dekRaw.fill(0);
   }
@@ -132,14 +145,16 @@ export async function unlock(pin) {
   } finally {
     dekRaw.fill(0);
   }
-  const stored = await idb.entries('vault');
+  const [stored, current] = await Promise.all([idb.entries('vault'), idb.get('meta', REVISION_KEY)]);
   const decrypted = await Promise.all(stored.map(async ([name, box]) => [name, await decryptJSON(key, box, bucketAad(name))]));
   dek = key;
+  revision = current;
   return new Map(decrypted);
 }
 
 export function lock() {
   dek = null;
+  revision = undefined;
 }
 
 /** Cifra y guarda bloques; los bloques con valor null se borran. Todo en una transacción. */
@@ -147,15 +162,17 @@ export async function saveBuckets(changes) {
   if (!dek) throw new Error('La caja fuerte está bloqueada');
   const puts = [...changes].filter(([, value]) => value !== null);
   const deletes = [...changes].filter(([, value]) => value === null).map(([name]) => name);
-  await idb.write('vault', await encryptBuckets(dek, puts), deletes);
+  const next = newId();
+  await idb.writeChecked({ expected: revision, next, puts: await encryptBuckets(dek, puts), deletes });
+  revision = next;
 }
 
 /** Sustituye todos los datos (restaurar copia) manteniendo el PIN y la clave actuales. */
 export async function replaceBuckets(buckets) {
   if (!dek) throw new Error('La caja fuerte está bloqueada');
-  const meta = await idb.get('meta', META_KEY);
-  const vault = await encryptBuckets(dek, buckets);
-  await idb.replaceAll({ meta: [[META_KEY, meta]], vault });
+  const next = newId();
+  await idb.writeChecked({ expected: revision, next, puts: await encryptBuckets(dek, buckets), clear: true });
+  revision = next;
 }
 
 /** Comprueba un PIN (cuenta como intento a efectos del límite). */
@@ -176,6 +193,7 @@ export async function changePin(currentPin, newPin) {
 
 /** Borra todos los datos de este dispositivo. */
 export async function destroy() {
+  await idb.clearAll(); // si falla, la sesión sigue igual (no queda a medias)
   dek = null;
-  await idb.clearAll();
+  revision = undefined;
 }

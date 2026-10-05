@@ -25,7 +25,10 @@ test('vault: crear, bloquear y desbloquear', async () => {
 
 test('vault: en el almacenamiento no hay nada legible', async () => {
   await freshVault();
-  const rows = [...(await idb.entries('vault')), ...(await idb.entries('meta'))];
+  // 'revision' es una marca aleatoria sin datos (sirve para detectar escrituras de otra ventana).
+  const meta = (await idb.entries('meta')).filter(([key]) => key !== 'revision');
+  assert.ok(typeof (await idb.get('meta', 'revision')) === 'string');
+  const rows = [...(await idb.entries('vault')), ...meta];
   const text = new TextDecoder().decode(new Uint8Array(rows.flatMap(([, v]) => [...(v.ct ?? v.dek?.ct ?? [])])));
   assert.ok(!text.includes('secreto') && !text.includes('mundo'));
   assert.ok(rows.every(([, v]) => v.ct instanceof Uint8Array || v.dek?.ct instanceof Uint8Array));
@@ -69,4 +72,11 @@ test('vault: guardar, borrar bloques y destruir', async () => {
   await vault.destroy();
   assert.equal(await vault.status(), 'new');
   assert.ok(!vault.isValidPin('12345') && !vault.isValidPin('12345a') && vault.isValidPin('012345'));
+});
+
+test('vault: varios intentos de PIN a la vez cuentan todos', async () => {
+  await freshVault();
+  vault.lock();
+  await Promise.allSettled([vault.unlock('000001'), vault.unlock('000002'), vault.unlock('000003')]);
+  assert.equal((await vault.getLockout()).failures, 3);
 });

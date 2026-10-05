@@ -6,12 +6,12 @@ import * as vault from './vault.js';
 import { newId } from './ids.js';
 import { todayISO } from './dates.js';
 import {
-  CORE_BUCKET, LIMITS, ValidationError, allBucketKeys, buildBucket, mergeBuckets, movementBucket,
+  CORE_BUCKET, LIMITS, ValidationError, allBucketKeys, buildBucket, mergeBuckets, movementBucket, isBucketKey,
   normalizeAccount, normalizeBudget, normalizeCategory, normalizeData, normalizeDebt,
   normalizeMovement, normalizeRecurring, normalizeSettings,
 } from './model.js';
 import { computeBalances, createDerived } from './finance.js';
-import { dueOccurrences, firstIndexFrom, nextDate } from './recurring.js';
+import { dueOccurrences, planRecurringUpdate } from './recurring.js';
 
 let state = null;
 let rev = 0;
@@ -20,6 +20,7 @@ const listeners = new Set();
 const dirty = new Set();
 let saving = null;
 let saveErrorHandler = () => {};
+let generation = 0; // cambia al descargar los datos (bloqueo): invalida operaciones en curso
 
 export const getState = () => state;
 export const isLoaded = () => state !== null;
@@ -49,6 +50,7 @@ export function setState(data) {
 }
 
 export function unload() {
+  generation += 1;
   setState(null);
 }
 
@@ -57,7 +59,8 @@ export function loadFromBuckets(buckets) {
   const { data, dropped } = normalizeData(mergeBuckets(buckets), { strict: false });
   setState(data);
   if (dropped > 0) {
-    for (const key of allBucketKeys(state)) dirty.add(key);
+    // Reescribe lo reparado y borra los bloques que se quedaron vacíos (si no, se repetiría).
+    for (const key of [...allBucketKeys(state), ...buckets.keys()]) if (isBucketKey(key)) dirty.add(key);
     save();
   }
   return dropped;
@@ -471,7 +474,7 @@ export function runRecurring(today = todayISO()) {
 export function addRecurring(input, today = todayISO()) {
   const s = requireState();
   ensureRoom(s.recurring, LIMITS.recurring, 'Has alcanzado el máximo de movimientos programados.');
-  const rule = normalizeRecurring({ ...input, id: newId(), startDate: input.nextDate, index: 0 });
+  const rule = normalizeRecurring({ ...input, id: newId(), startDate: input.nextDate, index: 0, anchorDay: null });
   checkRefs(rule.template);
   s.recurring.push(rule);
   const { keys, created } = generateDue(today);
@@ -479,35 +482,16 @@ export function addRecurring(input, today = todayISO()) {
   return { rule, created };
 }
 
-/** Si cambia la frecuencia o la próxima fecha, la regla se reancla en esa fecha. */
+/** Guarda la edición de una regla (reanclaje y reanudación según planRecurringUpdate). */
 export function updateRecurring(id, input, today = todayISO()) {
   const s = requireState();
   const current = mustFind(s.recurring, id, 'El movimiento programado');
-  const scheduleChanged = input.frequency !== current.frequency
-    || input.interval !== current.interval
-    || input.nextDate !== nextDate(current);
-  const schedule = scheduleChanged
-    ? { startDate: input.nextDate, index: 0 }
-    : { startDate: current.startDate, index: current.index };
-  const next = normalizeRecurring({ ...current, ...input, ...schedule, id });
-  // Reanudar sin tocar las fechas: no se recuperan las ocurrencias de la pausa.
-  if (next.active && !current.active && !scheduleChanged) next.index = firstIndexFrom(next, today);
+  const next = normalizeRecurring({ ...planRecurringUpdate(current, input, today), id });
   checkRefs(next.template);
   s.recurring[s.recurring.indexOf(current)] = next;
   const { keys, created } = generateDue(today);
   commit(CORE_BUCKET, ...keys);
   return { rule: next, created };
-}
-
-/** Pausa o reanuda. Al reanudar no se recuperan las fechas que pasaron durante la pausa. */
-export function setRecurringActive(id, active, today = todayISO()) {
-  const s = requireState();
-  const rule = mustFind(s.recurring, id, 'El movimiento programado');
-  if (active && !rule.active) rule.index = firstIndexFrom(rule, today);
-  rule.active = active;
-  const { keys, created } = active ? generateDue(today) : { keys: new Set(), created: 0 };
-  commit(CORE_BUCKET, ...keys);
-  return created;
 }
 
 /** Borra la regla; los movimientos ya creados se conservan como movimientos normales. */
@@ -536,13 +520,18 @@ export function updateSettings(patch) {
 /** Sustituye todos los datos por los de una copia ya validada (modo estricto). */
 export async function replaceAll(data) {
   const previous = requireState();
+  const pending = new Set(dirty); // cambios aún sin guardar: se conservan si la restauración falla
   if (saving) await saving.catch(() => {});
+  const session = generation;
   setState(data);
   try {
     await vault.replaceBuckets(allBuckets(data)); // borra y escribe todo en una sola transacción
   } catch (error) {
-    setState(previous);
-    notify();
+    if (session === generation) { // si se bloqueó mientras tanto, no se recarga nada
+      setState(previous);
+      for (const key of pending) dirty.add(key);
+      notify();
+    }
     throw error;
   }
   notify();

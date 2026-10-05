@@ -28,7 +28,6 @@ export const ACCENT_PRESETS = [
 ];
 
 const media = matchMedia('(prefers-color-scheme: dark)');
-const listeners = new Set();
 let current = read();
 let tokenCache = null;
 
@@ -81,20 +80,12 @@ export function setAppearance(patch) {
     /* sin almacenamiento disponible: se aplica solo mientras la app esté abierta */
   }
   applyTheme();
-  listeners.forEach((fn) => fn());
-}
-
-export function onThemeChange(fn) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
 }
 
 /** Aplica el tema y sigue los cambios del sistema cuando el modo es automático. */
 export function initTheme() {
   applyTheme();
   media.addEventListener('change', () => {
-    if (current.mode !== 'auto') return;
-    applyTheme();
-    listeners.forEach((fn) => fn());
+    if (current.mode === 'auto') applyTheme();
   });
 }

@@ -13,9 +13,17 @@
 - [ ] 🟡 [documentación] Hito 10 — GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md.
       Justificación: cierre obligatorio del protocolo.
 
-- [ ] 🔴 [seguridad] Repetir la revisión de código completa (se interrumpió por límite de uso) y corregir lo que encuentre.
 
 ### Sugerencias (fuera del alcance de la v1)
+
+- [ ] 🟢 [optimización] Bloques mensuales ('mov-AAAA-MM') en lugar de anuales y escrituras agrupadas en una microtarea.
+      Justificación: con más de 20.000 movimientos, cada cambio recifra el año entero (≈1 MB; 6-15 ms en un móvil).
+- [ ] 🟢 [limpieza] Unificar en un solo componente los grupos de selección (segmented, chipPicker, categoryGrid,
+      iconPicker, colorPicker y los chips escritos a mano en accounts.js y movements.js).
+      Justificación: hoy la lógica de selección está repetida 7 veces.
+- [ ] 🟢 [limpieza] Un único ayudante para «elegir y confirmar PIN» (screens.js y security.js) y una única
+      comprobación de referencias (store.checkRefs y la de model.normalizeData).
+      Justificación: evitar que los mensajes y reglas diverjan.
 
 - [ ] 🟡 [funcionalidad] Validar en un iPhone real el teclado sobre las hojas (variable --kb) y el menú Compartir con archivos .json.
       Justificación: el emulador del navegador no reproduce el teclado de iOS ni su hoja de compartir.
@@ -36,6 +44,7 @@
 
 ## Completados
 
+- [x] 2026-10-05 — Hito 9: revisión de código completa (9 revisores) y corrección de todos los fallos confirmados; 74 tests.
 - [x] 2026-10-05 — Documentación: «Apariencia» en la guía y en la documentación técnica; README.md creado.
 - [x] 2026-10-05 — Temas: modo claro/oscuro/automático y color de la app con contraste garantizado (Más → Apariencia).
 - [x] 2026-10-05 — Hito 8: service worker (sin conexión y aviso de versión nueva), tools/release.py y publicación

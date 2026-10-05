@@ -89,7 +89,7 @@ export function openDebtForm({ debt = null, kind = 'owe' } = {}) {
     if (!confirmed) return;
     store.deleteDebt(debt.id);
     sheet.close();
-    router.navigate('/deudas', { replace: true });
+    router.back('/deudas');
     toast('Deuda borrada');
   };
 

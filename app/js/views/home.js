@@ -3,7 +3,7 @@
 
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { section, list, row, tile, notice, progress, emptyState } from '../ui/components.js';
+import { section, list, row, tile, notice, emptyState } from '../ui/components.js';
 import { lookups, monthLabel, ago, shortDate, frequencyLabel, describeMovement } from '../ui/format.js';
 import * as router from '../ui/router.js';
 import { pwa, promptInstall, applyUpdate } from '../ui/pwa.js';
@@ -12,8 +12,9 @@ import { formatMoney, formatSigned } from '../core/money.js';
 import { currentMonthKey, todayISO, addDays } from '../core/dates.js';
 import { nextDate, isFinished } from '../core/recurring.js';
 import { openMovementForm } from './movement-form.js';
-import { compareNewest, movementRow, accountRow } from './shared.js';
+import { compareNewest, movementRow, accountRow, budgetItem } from './shared.js';
 import { showMovementsFor } from './movements.js';
+import { showStatsFor } from './stats.js';
 
 const BACKUP_REMINDER_DAYS = 30;
 
@@ -74,7 +75,7 @@ export function homeView() {
       stat('Debes', formatMoney(totalOwe)),
       stat('Te deben', formatMoney(totalOwed)))));
 
-  body.push(h('button', { type: 'button', class: 'card', onClick: () => router.navigate('/analisis', { replace: true }) },
+  body.push(h('button', { type: 'button', class: 'card', onClick: () => showStatsFor(monthKey) },
     h('div', { class: 'card-head' },
       h('span', { class: 'card-title' }, `Este mes · ${monthLabel(monthKey)}`),
       icon('chevron-right', { className: 'icon chev' })),
@@ -87,18 +88,7 @@ export function homeView() {
   const atRisk = derived.budgets(monthKey).filter((b) => b.level !== 'ok').slice(0, 3);
   if (atRisk.length) {
     body.push(section({ title: 'Presupuestos', action: { label: 'Ver todos', onClick: () => router.navigate('/mas/presupuestos') } },
-      h('ul', { class: 'list' }, atRisk.map((b) => {
-        const category = look.categories.get(b.categoryId);
-        return h('li', null, h('div', { class: 'budget' },
-          h('div', { class: 'budget-top' },
-            category ? tile(category, 'sm') : tile({ icon: 'target', color: 'graphite' }, 'sm'),
-            h('span', { class: 'row-main row-title' }, category?.name ?? 'Total del mes'),
-            h('span', { class: ['badge', b.level === 'over' ? 'danger' : 'warn'] }, b.level === 'over' ? 'Superado' : `${Math.round(b.ratio * 100)} %`)),
-          progress(b.ratio, b.level, 'Gastado del presupuesto'),
-          h('div', { class: 'budget-meta' },
-            h('span', null, `${formatMoney(b.spent)} de ${formatMoney(b.amount)}`),
-            h('span', { class: b.remaining < 0 ? 'neg' : '' }, b.remaining < 0 ? `${formatMoney(-b.remaining)} de más` : `Quedan ${formatMoney(b.remaining)}`))));
-      }))));
+      list(atRisk.map((b) => budgetItem(b, look.categories.get(b.categoryId))))));
   }
 
   const accounts = state.accounts.filter((a) => !a.archived);
@@ -111,7 +101,7 @@ export function homeView() {
     .filter((r) => r.active && !isFinished(r))
     .map((r) => ({ rule: r, date: nextDate(r) }))
     .filter((x) => x.date <= addDays(today, 14))
-    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 3);
   if (upcoming.length) {
     body.push(section({ title: 'Próximos programados', action: { label: 'Ver', onClick: () => router.navigate('/mas/programados') } },

@@ -23,7 +23,7 @@ test('finance: saldos de cuentas con todos los tipos de movimiento', () => {
 
 test('finance: pendiente de cada deuda', () => {
   const totals = computeDebtTotals(sampleState());
-  assert.deepEqual(totals.get('debtOweXX'), { added: 30000, paid: 10000, pending: 20000, firstDate: '2026-10-03', lastDate: '2026-10-04', count: 2 });
+  assert.deepEqual(totals.get('debtOweXX'), { added: 30000, paid: 10000, pending: 20000, lastDate: '2026-10-04' });
   assert.equal(totals.get('debtOwedX').pending, 2500);
 });
 
@@ -78,4 +78,13 @@ test('finance: los cálculos derivados se cachean por versión', () => {
   assert.ok(d.summary === d.summary);
   assert.ok(d.month('2026-10') === d.month('2026-10'));
   assert.equal(d.budgets('2026-10').length, 2);
+});
+
+test('finance: una deuda pagada de más no reduce el total que debes de las demás', () => {
+  const state = sampleState();
+  state.movements.push({ id: 'movOver01', date: '2026-10-08', type: 'debt', amount: 50000, debtId: 'debtOwedX', flow: 'pay', accountId: null, note: '', ts: 9 });
+  const s = summarize(state); // Laura pagó 500 € de más
+  assert.equal(s.totalOwed, 0, 'te deben 0, no un número negativo');
+  assert.equal(s.totalOwe, 20000);
+  assert.equal(s.netWorth, 311000 - 20000 + (2500 - 50000), 'el patrimonio sí refleja el pago de más');
 });

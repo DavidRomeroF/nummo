@@ -41,7 +41,8 @@ export function accountRow(account, balance, { onClick = null, chevron = false }
 /** Iniciales y color estables para identificar a cada persona o entidad de una deuda. */
 export function debtBadge(debt) {
   const words = debt.name.split(/\s+/).filter(Boolean);
-  const letters = (words.length > 1 ? words[0][0] + words[1][0] : Array.from(words[0] ?? '?').slice(0, 2).join('')).toUpperCase();
+  const first = (word) => Array.from(word)[0];
+  const letters = (words.length > 1 ? first(words[0]) + first(words[1]) : Array.from(words[0] ?? '?').slice(0, 2).join('')).toUpperCase();
   let hash = 0;
   for (const ch of debt.id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return { letters, color: COLOR_KEYS[hash % COLOR_KEYS.length] };
@@ -59,6 +60,25 @@ export function debtRow(debt, totals, { onClick }) {
       h('span', { class: ['row-sub', due?.level === 'danger' && 'neg', due?.level === 'warn' && 'warn'] }, subtitle),
       settled ? null : progress(paidRatio, '', 'Parte pagada')),
     h('span', { class: 'row-value' }, formatMoney(Math.max(totals.pending, 0)), h('small', null, `de ${formatMoney(totals.added)}`)));
+}
+
+/**
+ * Presupuesto con su barra: nivel (bien / al 80 % / superado), gastado, límite y lo que queda.
+ * Con `onClick` es un botón (para editarlo).
+ */
+export function budgetItem(b, category, { onClick = null } = {}) {
+  const pct = `${Math.round(b.ratio * 100)} %`;
+  const name = category?.name ?? 'Total del mes';
+  return h(onClick ? 'button' : 'div', { type: onClick ? 'button' : null, class: ['budget', onClick && 'row'], onClick },
+    h('span', { class: 'row-main' },
+      h('span', { class: 'budget-top' },
+        category ? tile(category, 'sm') : tile({ icon: 'target', color: 'graphite' }, 'sm'),
+        h('span', { class: 'row-main row-title' }, name),
+        h('span', { class: ['badge', b.level === 'over' ? 'danger' : b.level === 'warn' ? 'warn' : 'ok'] }, b.level === 'over' ? 'Superado' : pct)),
+      progress(b.ratio, b.level, `Gastado del presupuesto de ${name}: ${pct}`),
+      h('span', { class: 'budget-meta' },
+        h('span', null, `${formatMoney(b.spent)} de ${formatMoney(b.amount)}`),
+        h('span', { class: b.remaining < 0 ? 'neg' : '' }, b.remaining < 0 ? `${formatMoney(-b.remaining)} de más` : `Quedan ${formatMoney(b.remaining)}`))));
 }
 
 /** Botones subir/bajar para ordenar una lista (accesibles, sin arrastrar). */

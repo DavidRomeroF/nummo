@@ -4,6 +4,71 @@
 
 ---
 
+## 2026-10-05 20:48 — Revisión de código completa y correcciones
+
+Tipo: seguridad | cambio | incidencia | limpieza
+
+Qué se hizo:
+Revisión independiente con 9 revisores (línea a línea del núcleo, interfaz y vistas; invariantes de
+datos; trazado entre archivos; trampas de JS/plataforma; envoltorios; reutilización/simplificación;
+eficiencia/profundidad). Fallos confirmados y corregidos:
+- Bienvenida: bucle infinito al llegar un aviso de instalación/actualización (Set.forEach visitaba
+  oyentes añadidos durante el aviso) → los avisos se emiten sobre una copia.
+- Primera instalación del service worker: recargaba la página (clients.claim) y se perdía lo escrito
+  en la configuración inicial → solo se recarga tras pulsar «Actualizar».
+- Dos ventanas/pestañas a la vez: una podía pisar los datos de la otra → marca de revisión en cada
+  escritura (ConflictError) y bloqueo para recargar datos actualizados.
+- Intentos de PIN simultáneos contaban como uno → contador actualizado en una sola transacción;
+  el teclado no admite otro intento mientras se comprueba.
+- Al bloquear, las confirmaciones quedaban abiertas sobre el PIN y las hojas tardaban en cerrarse
+  → se cierran al instante (las alertas como «Cancelar») antes de quitar la protección de privacidad.
+- Doble toque en «Guardar» creaba dos movimientos → la hoja se vuelve inerte y descarta clics al cerrarse.
+- Lista mensual cortada en 300 movimientos → el tope solo aplica a la búsqueda en todo el historial.
+- Estado de pantallas (mes, filtros, búsqueda, pestaña, modo ordenar) sobrevivía a bloqueo,
+  borrado y restauración → se reinicia por sesión (registerViewReset) y la búsqueda se olvida al bloquear.
+- Programados: editar con el formulario abierto mientras se generaba una cuota la duplicaba; cambiar
+  frecuencia/intervalo perdía el día 29–31; reanudar con cambios recuperaba la pausa; el aviso del
+  formulario no coincidía con lo que pasaba → planRecurringUpdate (función pura usada por el almacén
+  y por el formulario), fecha mostrada (shownNextDate) y día de anclaje (anchorDay).
+- Programado de deuda con cuenta «Ninguna» se guardaba con una cuenta al editarlo.
+- Restauración fallida perdía cambios pendientes; bloqueo durante una restauración recargaba datos.
+- Reparación de datos dañados no borraba bloques vacíos (aviso repetido en cada desbloqueo).
+- Clave en memoria si los datos no se podían cargar tras un PIN correcto; mensaje genérico.
+- Guardado fallido al bloquear se perdía sin aviso → reintento y aviso en la pantalla del PIN.
+- Reloj del sistema atrasado evitaba el bloqueo automático → reloj monotónico + bloqueo si se atrasa.
+- Selector de archivos / Compartir bloqueaban la app a mitad de restaurar o guardar la copia → pausa breve.
+- Confirmaciones con el foco en el botón peligroso → foco en «Cancelar».
+- Restaurar se podía enviar dos veces (Intro) → protegido.
+- iPhone: imposible escribir saldos negativos (teclado sin «−») → botón «+/−».
+- Inicio: «Debes/Te deben» compensaba deudas pagadas de más (distinto de la pestaña Deudas).
+- «Repetir» con fecha pasada creaba muchos movimientos sin avisar → aviso previo.
+- Restaurar desde la app no creaba los programados pendientes; borrar una deuda duplicaba el historial;
+  iniciales con emojis rotas; ordenaciones sin empate estable; destroy() olvidaba la clave antes de
+  borrar; IndexedDB rechazaba con null y no reintentaba «UnknownError»; copia de seguridad mayor que el
+  límite de restauración (LIMITS.movements 100.000 y MAX_BACKUP_BYTES 64 MB, con comprobación al crear).
+- Búsqueda: nombres normalizados una vez por búsqueda y espera de 150 ms entre teclas.
+Limpieza: fila de presupuesto única (antes 3 copias con etiquetas distintas), código muerto eliminado
+(hasIcon, focusFirstInvalid, infoDialog, onThemeChange, setRecurringActive, opciones sin uso, campos
+firstDate/count, CSS .no-tabbar/.spacer/.spinner, imports sin uso), constantes del núcleo reutilizadas
+(PIN_LENGTH, MIN/MAX_YEAR, BUDGET_WARN_RATIO, MAX_INTERVAL, FREE_ATTEMPTS).
+
+Por qué:
+Cerrar el Hito 9 (calidad y seguridad) antes de publicar.
+
+Archivos / recursos afectados:
+- app/js/core/{idb,vault,store,recurring,model,finance,backup}.js
+- app/js/ui/{sheet,pwa,pinpad,session,components,dom,icons,theme,restore}.js, app/js/main.js
+- app/js/views/*.js, app/css/app.css, app/sw.js
+- tests/{store,recurring,finance,vault}.test.js, DOCUMENTACION-TECNICA.md
+
+Verificación:
+74/74 tests (9 nuevos de regresión). Navegador: las 14 pantallas cargan sin errores; comprobado en
+vivo: un aviso = una llamada (sin bucle), doble clic en «Guardar» = 1 movimiento, foco inicial en
+«Cancelar», bloqueo con confirmación abierta → se cierra como «Cancelar» y queda solo el PIN, botón «+/−».
+release.py --check OK. Queda una última pasada de revisión (huecos) en curso.
+
+---
+
 ## 2026-10-05 20:29 — Documentación de temas y README
 
 Tipo: documentación

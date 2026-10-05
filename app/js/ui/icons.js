@@ -3,8 +3,6 @@
 import ICONS from './icon-data.js';
 import { s } from './dom.js';
 
-export const hasIcon = (name) => Object.hasOwn(ICONS, name);
-
 /** Icono decorativo (aria-hidden) salvo que se indique `label`. */
 export function icon(name, { size = 24, label = null, className = 'icon' } = {}) {
   const paths = ICONS[name] ?? ICONS.dots;

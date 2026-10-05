@@ -4,9 +4,10 @@
 import { h, uid } from './dom.js';
 
 const openSheets = new Set();
+const openAlerts = new Set(); // funciones que cierran una alerta como «Cancelar»
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function closeWithAnimation(dialog, done) {
+function closeDialog(dialog, done, immediate) {
   let finished = false;
   const finish = () => {
     if (finished) return;
@@ -15,7 +16,9 @@ function closeWithAnimation(dialog, done) {
     dialog.remove();
     done?.();
   };
-  if (reducedMotion()) return finish();
+  // Mientras se va, ya no admite toques ni teclas: un doble toque en «Guardar» no guarda dos veces.
+  dialog.inert = true;
+  if (immediate || reducedMotion()) return finish();
   dialog.classList.add('closing');
   dialog.addEventListener('animationend', finish, { once: true });
   setTimeout(finish, 320); // por si el navegador no emite animationend
@@ -24,38 +27,39 @@ function closeWithAnimation(dialog, done) {
 /**
  * Abre una hoja inferior.
  * { title, body, primary: { label, onClick }, tall, onClose, focus: elemento a enfocar }
- * Devuelve { close, body, dialog, setBusy }.
+ * Devuelve { close }.
  */
 export function openSheet({ title, body, primary = null, tall = false, onClose = null, focus = null }) {
   const titleId = uid('t');
   const primaryButton = primary
     ? h('button', { type: 'button', class: 'btn-text strong', onClick: () => primary.onClick() }, primary.label)
     : h('span', { 'aria-hidden': 'true' });
-  const content = h('div', { class: 'sheet-body' }, body);
   const dialog = h('dialog', { class: ['sheet', tall && 'tall'], 'aria-labelledby': titleId },
     h('div', { class: 'sheet-head' },
       h('button', { type: 'button', class: 'btn-text', onClick: () => api.close() }, 'Cancelar'),
       h('h2', { class: 'sheet-title', id: titleId }, title),
       primaryButton),
-    content);
+    h('div', { class: 'sheet-body' }, body));
   let closed = false;
   const api = {
-    dialog,
-    body: content,
-    close() {
+    /** immediate: sin animación (al bloquear, para que nada quede a la vista). */
+    close(immediate = false) {
       if (closed) return;
       closed = true;
       openSheets.delete(api);
-      closeWithAnimation(dialog, onClose);
-    },
-    setBusy(busy) {
-      primaryButton.setAttribute('aria-busy', busy ? 'true' : 'false');
+      closeDialog(dialog, onClose, immediate);
     },
   };
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     api.close();
   });
+  // Una vez pedido el cierre, ningún clic llega ya a los botones (ni un segundo «Guardar»).
+  dialog.addEventListener('click', (event) => {
+    if (!closed) return;
+    event.stopImmediatePropagation();
+    event.preventDefault();
+  }, true);
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) api.close(); // toque en el fondo oscurecido
   });
@@ -66,8 +70,10 @@ export function openSheet({ title, body, primary = null, tall = false, onClose =
   return api;
 }
 
-export function closeAllSheets() {
-  for (const sheet of [...openSheets]) sheet.close();
+/** Cierra todas las hojas y alertas (las alertas, como si se pulsara «Cancelar»). */
+export function closeAllSheets({ immediate = false } = {}) {
+  for (const sheet of [...openSheets]) sheet.close(immediate);
+  for (const dismiss of [...openAlerts]) dismiss();
 }
 
 /** Alerta centrada. actions: [{ label, value, kind: 'strong' | 'danger' }]. Resuelve con `value`. */
@@ -77,11 +83,18 @@ function alertDialog({ title, text, actions, input = null, validate = null }) {
     const textId = uid('a');
     const error = h('p', { class: 'error', role: 'alert' });
     const dialog = h('dialog', { class: 'alert', role: 'alertdialog', 'aria-labelledby': titleId, 'aria-describedby': textId });
+    const cancelValue = actions.find((a) => !a.value)?.value ?? false;
+    let done = false;
     const finish = (value) => {
+      if (done) return;
+      done = true;
+      openAlerts.delete(dismiss);
+      dialog.inert = true;
       dialog.close();
       dialog.remove();
       resolve(value);
     };
+    const dismiss = () => finish(cancelValue);
     const buttons = actions.map((action) => h('button', {
       type: 'button',
       class: action.kind,
@@ -106,11 +119,13 @@ function alertDialog({ title, text, actions, input = null, validate = null }) {
     );
     dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
-      finish(actions.find((a) => !a.value)?.value ?? false);
+      dismiss();
     });
     document.body.append(dialog);
     dialog.showModal();
-    (input ?? buttons.at(-1)).focus();
+    openAlerts.add(dismiss);
+    // El foco empieza en «Cancelar»: Intro o Espacio nunca confirman por error una acción grave.
+    (input ?? buttons[0]).focus();
   });
 }
 
@@ -129,8 +144,4 @@ export function confirmDialog({ title, text = '', confirmLabel = 'Aceptar', dang
       { label: confirmLabel, value: true, kind: danger ? 'danger' : 'strong' },
     ],
   });
-}
-
-export function infoDialog({ title, text, label = 'Entendido' }) {
-  return alertDialog({ title, text, actions: [{ label, value: true, kind: 'strong' }] });
 }

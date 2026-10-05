@@ -8,6 +8,7 @@ import {
 import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { rerender } from '../ui/shell.js';
+import { registerViewReset } from '../ui/session.js';
 import * as store from '../core/store.js';
 import { ValidationError, LIMITS } from '../core/model.js';
 import { ACCOUNT_TYPES, accountTypeInfo } from '../core/catalog.js';
@@ -15,6 +16,9 @@ import { cleanLetters } from '../core/text.js';
 import { accountRow, moveButtons } from './shared.js';
 
 let sorting = false;
+registerViewReset(() => {
+  sorting = false;
+});
 
 export function accountsView() {
   const state = store.getState();

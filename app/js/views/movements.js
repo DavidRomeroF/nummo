@@ -6,6 +6,7 @@ import { list, monthNav, emptyState, chipPicker, categoryGrid, field, segmented 
 import { lookups, dayLabel } from '../ui/format.js';
 import { openSheet } from '../ui/sheet.js';
 import { rerender } from '../ui/shell.js';
+import { registerViewReset } from '../ui/session.js';
 import * as router from '../ui/router.js';
 import * as store from '../core/store.js';
 import { formatSigned, centsToInput } from '../core/money.js';
@@ -15,12 +16,18 @@ import { openMovementForm } from './movement-form.js';
 import { compareNewest, movementRow } from './shared.js';
 
 const MAX_SEARCH_RESULTS = 300;
+const SEARCH_DELAY_MS = 150;
 const NO_FILTERS = { type: null, accountId: null, categoryId: null };
 const TYPE_LABELS = { expense: 'Gastos', income: 'Ingresos', transfer: 'Transferencias', debt: 'Deudas' };
 
 let monthKey = currentMonthKey();
 let filters = { ...NO_FILTERS };
 let query = '';
+registerViewReset(() => {
+  monthKey = currentMonthKey();
+  filters = { ...NO_FILTERS };
+  query = '';
+});
 
 /** Abre la lista con filtros (p. ej. desde una cuenta del Inicio o una categoría de Análisis). */
 export function showMovementsFor(filter, month = currentMonthKey()) {
@@ -32,11 +39,18 @@ export function showMovementsFor(filter, month = currentMonthKey()) {
 
 const activeFilterCount = () => Object.values(filters).filter(Boolean).length;
 
-function matches(m, q, look) {
-  const parts = [m.note, centsToInput(m.amount)];
-  parts.push(look.accounts.get(m.accountId)?.name, look.accounts.get(m.toAccountId)?.name);
-  parts.push(look.categories.get(m.categoryId)?.name, look.debts.get(m.debtId)?.name);
-  return parts.some((p) => p && foldText(p).includes(q));
+/** Nombres ya normalizados (sin tildes ni mayúsculas), una vez por búsqueda y no por movimiento. */
+function foldedNames(look) {
+  const fold = (map) => new Map([...map].map(([id, item]) => [id, foldText(item.name)]));
+  return { accounts: fold(look.accounts), categories: fold(look.categories), debts: fold(look.debts) };
+}
+
+function matches(m, q, names) {
+  const fields = [
+    names.categories.get(m.categoryId), names.accounts.get(m.accountId), names.accounts.get(m.toAccountId),
+    names.debts.get(m.debtId), centsToInput(m.amount),
+  ];
+  return fields.some((f) => f?.includes(q)) || (m.note !== '' && foldText(m.note).includes(q));
 }
 
 function results(state, look) {
@@ -49,9 +63,13 @@ function results(state, look) {
   if (filters.type) items = items.filter((m) => m.type === filters.type);
   if (filters.accountId) items = items.filter((m) => m.accountId === filters.accountId || m.toAccountId === filters.accountId);
   if (filters.categoryId) items = items.filter((m) => m.categoryId === filters.categoryId);
-  if (q) items = items.filter((m) => matches(m, q, look));
+  if (q) {
+    const names = foldedNames(look);
+    items = items.filter((m) => matches(m, q, names));
+  }
   items = [...items].sort(compareNewest);
-  const truncated = items.length > MAX_SEARCH_RESULTS;
+  // El tope solo se aplica a la búsqueda en todo el historial; un mes se muestra siempre completo.
+  const truncated = q !== '' && items.length > MAX_SEARCH_RESULTS;
   if (truncated) items = items.slice(0, MAX_SEARCH_RESULTS);
 
   if (!items.length) {
@@ -142,11 +160,14 @@ export function movementsView() {
     type: 'search', value: query, placeholder: 'Buscar', 'aria-label': 'Buscar movimientos',
     autocomplete: 'off', enterkeyhint: 'search',
   });
+  let pending = null;
   search.addEventListener('input', () => {
-    const hadQuery = query.trim() !== '';
     query = search.value;
-    if (hadQuery !== (query.trim() !== '')) monthBox.hidden = query.trim() !== '';
-    refresh();
+    monthBox.hidden = query.trim() !== '';
+    clearTimeout(pending);
+    pending = setTimeout(() => {
+      if (container.isConnected) refresh();
+    }, SEARCH_DELAY_MS);
   });
   const count = activeFilterCount();
   const monthBox = h('div', { hidden: query.trim() !== '' }, monthNav(monthKey, (key) => { monthKey = key; rerender(); }));

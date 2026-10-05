@@ -21,7 +21,13 @@ async function deleteEverything() {
     requireText: 'BORRAR',
   });
   if (!confirmed) return;
-  await vault.destroy();
+  try {
+    await vault.destroy();
+  } catch (error) {
+    console.error(error);
+    toast('No se han podido borrar los datos. Inténtalo de nuevo.', { kind: 'error' });
+    return;
+  }
   resetApp();
   toast('Se han borrado todos los datos.');
 }

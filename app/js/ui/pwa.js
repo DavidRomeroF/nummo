@@ -3,8 +3,10 @@
 let registration = null;
 let waitingWorker = null;
 let installPrompt = null;
+let updateRequested = false;
 const listeners = new Set();
-const emit = () => listeners.forEach((fn) => fn());
+// Sobre una copia: un oyente que se vuelve a suscribir al recibir el aviso no se llama en bucle.
+const emit = () => [...listeners].forEach((fn) => fn());
 
 export const pwa = {
   get updateReady() {
@@ -42,10 +44,11 @@ function watch(reg) {
       if (worker.state === 'installed' && navigator.serviceWorker.controller) offer(worker);
     });
   });
-  let reloading = false;
+  // Solo se recarga cuando la persona pulsó «Actualizar». La primera instalación también cambia
+  // de controlador (clients.claim) y recargar ahí haría perder lo que se esté escribiendo.
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
-    reloading = true;
+    if (!updateRequested) return;
+    updateRequested = false;
     location.reload();
   });
 }
@@ -85,6 +88,7 @@ export function checkForUpdate() {
 
 /** Activa la versión nueva (la página se recarga sola al cambiar de controlador). */
 export function applyUpdate() {
+  updateRequested = true;
   waitingWorker?.postMessage({ type: 'SKIP_WAITING' });
 }
 

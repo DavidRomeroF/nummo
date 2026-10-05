@@ -10,6 +10,7 @@ import * as router from '../ui/router.js';
 import * as store from '../core/store.js';
 import { ValidationError, LIMITS } from '../core/model.js';
 import { todayISO, addDays } from '../core/dates.js';
+import { countDue } from '../core/recurring.js';
 import { openDebtMovementForm } from './debt-forms.js';
 
 const TYPE_OPTIONS = [
@@ -89,9 +90,17 @@ export function openMovementForm({ movement = null, preset = {} } = {}) {
   };
   renderDynamic();
 
+  const repeatInfo = h('p', { class: 'help', 'aria-live': 'polite' });
+  const updateRepeatInfo = () => {
+    const day = readDate(date);
+    const n = draft.repeat && day ? countDue({ frequency: draft.repeat, interval: 1, startDate: day, endDate: null }, todayISO()) : 0;
+    repeatInfo.textContent = n > 1 ? `Como la fecha es pasada, al guardar se crearán ${n} movimientos (uno por cada vez hasta hoy).` : '';
+  };
+  date.addEventListener('change', updateRepeatInfo);
+
   const quickDates = h('div', { class: 'quick' },
-    h('button', { type: 'button', class: 'chip text-only', onClick: () => { date.value = todayISO(); } }, 'Hoy'),
-    h('button', { type: 'button', class: 'chip text-only', onClick: () => { date.value = addDays(todayISO(), -1); } }, 'Ayer'));
+    h('button', { type: 'button', class: 'chip text-only', onClick: () => { date.value = todayISO(); updateRepeatInfo(); } }, 'Hoy'),
+    h('button', { type: 'button', class: 'chip text-only', onClick: () => { date.value = addDays(todayISO(), -1); updateRepeatInfo(); } }, 'Ayer'));
 
   const save = () => {
     error.textContent = '';
@@ -154,9 +163,10 @@ export function openMovementForm({ movement = null, preset = {} } = {}) {
     field('Fecha', date, { input: date }),
     quickDates,
     field('Nota', note),
-    editing ? null : field('Repetir', segmented(REPEAT_OPTIONS, null, (value) => { draft.repeat = value; }, { label: 'Repetir' }), {
+    editing ? null : field('Repetir', segmented(REPEAT_OPTIONS, null, (value) => { draft.repeat = value; updateRepeatInfo(); }, { label: 'Repetir' }), {
       help: 'Si eliges una frecuencia, se creará solo en cada fecha (lo verás en Más → Programados).',
     }),
+    editing ? null : repeatInfo,
     error,
     h('button', { type: 'button', class: 'btn primary', onClick: save }, 'Guardar'),
     editing ? h('button', { type: 'button', class: 'btn danger', onClick: remove }, 'Borrar movimiento') : null,

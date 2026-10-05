@@ -14,7 +14,7 @@ import { debtAccountSign } from './finance.js';
 export const BACKUP_FORMAT = 'app-dinero-backup';
 export const BACKUP_VERSION = 1;
 export const MIN_PASSWORD_LENGTH = 8;
-export const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
+export const MAX_BACKUP_BYTES = 64 * 1024 * 1024; // holgado para LIMITS.movements (model.js)
 const AAD = 'app-dinero:backup:v1';
 
 export class BackupPasswordError extends Error {
@@ -45,7 +45,10 @@ export async function createBackup(state, password, { iterations = DEFAULT_ITERA
     cipher: { name: 'AES-GCM', iv: toBase64(iv) },
     data: toBase64(ct),
   };
-  return { text: JSON.stringify(envelope), filename: `dinero-copia-${todayISO(now)}.json` };
+  const text = JSON.stringify(envelope);
+  // Nunca se entrega una copia que luego no se podría restaurar.
+  if (text.length > MAX_BACKUP_BYTES) throw new ValidationError('Hay demasiados datos para una sola copia de seguridad.');
+  return { text, filename: `dinero-copia-${todayISO(now)}.json` };
 }
 
 /** Comprueba la estructura del archivo (sin contraseña). Lanza ValidationError si no es válido. */

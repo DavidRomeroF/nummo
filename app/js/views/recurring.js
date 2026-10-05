@@ -3,16 +3,16 @@
 import { h, replace } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import {
-  section, list, row, tile, field, amountInput, segmented, chipPicker, categoryGrid, dateInput, readDate, textInput,
+  list, row, tile, field, amountInput, segmented, chipPicker, categoryGrid, dateInput, readDate, textInput,
   errorText, toggleRow, stepper, emptyState,
 } from '../ui/components.js';
 import { lookups, describeMovement, frequencyLabel, shortDate } from '../ui/format.js';
 import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import * as store from '../core/store.js';
-import { ValidationError, LIMITS } from '../core/model.js';
+import { ValidationError, LIMITS, MAX_INTERVAL } from '../core/model.js';
 import { todayISO } from '../core/dates.js';
-import { nextDate, isFinished, countDue } from '../core/recurring.js';
+import { nextDate, isFinished, dueOccurrences, displayedNextDate, planRecurringUpdate } from '../core/recurring.js';
 import { selectableAccounts, selectableCategories } from './movement-form.js';
 
 const TYPE_OPTIONS = [
@@ -38,7 +38,7 @@ export function recurringView() {
   const look = lookups(state);
   const rules = [...state.recurring].sort((a, b) => {
     const rank = (r) => (isFinished(r) ? 2 : r.active ? 0 : 1);
-    return rank(a) - rank(b) || (nextDate(a) < nextDate(b) ? -1 : 1);
+    return rank(a) - rank(b) || nextDate(a).localeCompare(nextDate(b));
   });
   return {
     title: 'Programados',
@@ -70,10 +70,13 @@ export function openRecurringForm({ rule = null } = {}) {
   const t = rule?.template;
   const accounts = selectableAccounts(state, t?.accountId, t?.toAccountId);
   const debts = state.debts;
+  const today = todayISO();
+  const defaultAccount = accounts.find((a) => a.id === state.settings.lastAccountId)?.id ?? accounts[0]?.id ?? null;
   const draft = {
     type: t?.type ?? 'expense',
     categoryId: t?.categoryId ?? null,
-    accountId: t?.accountId ?? state.settings.lastAccountId ?? accounts[0]?.id ?? null,
+    // Al editar se respeta la cuenta guardada, también «Ninguna» (null) en las cuotas de deudas.
+    accountId: editing ? t.accountId : defaultAccount,
     toAccountId: t?.toAccountId ?? null,
     debtId: t?.debtId ?? debts[0]?.id ?? null,
     flow: t?.flow ?? 'pay',
@@ -82,26 +85,47 @@ export function openRecurringForm({ rule = null } = {}) {
     hasEnd: !!rule?.endDate,
     active: rule?.active ?? true,
   };
-  if (!accounts.some((a) => a.id === draft.accountId)) draft.accountId = accounts[0]?.id ?? null;
 
   const amount = amountInput({ value: t?.amount ?? null });
   const dynamic = h('div', { class: 'form' });
-  const next = dateInput(rule ? nextDate(rule) : todayISO());
+  // La fecha mostrada: en una regla en pausa, aquella en la que se reanudaría.
+  const shownNext = rule ? displayedNextDate(rule, today) : today;
+  const next = dateInput(shownNext);
   const end = dateInput(rule?.endDate ?? '');
   end.hidden = !draft.hasEnd;
   const note = textInput({ value: t?.note ?? '', placeholder: 'Por ejemplo: Alquiler', maxLength: LIMITS.note });
   const dueInfo = h('p', { class: 'help', 'aria-live': 'polite' });
   const error = errorText();
 
+  const schedule = (day) => ({
+    active: draft.active,
+    frequency: draft.frequency,
+    interval: draft.interval,
+    nextDate: day,
+    endDate: draft.hasEnd ? readDate(end) : null,
+    shownNextDate: shownNext,
+  });
+  /** Lo que pasará al guardar, calculado con la misma función que usa el almacén. */
   const updateDueInfo = () => {
     const day = readDate(next);
-    const today = todayISO();
-    if (!day || day > today) {
-      dueInfo.textContent = day ? `El primero se creará el ${shortDate(day)}.` : '';
+    if (!day) {
+      dueInfo.textContent = '';
       return;
     }
-    const n = countDue({ frequency: draft.frequency, interval: draft.interval, startDate: day, endDate: draft.hasEnd ? readDate(end) : null }, today);
-    dueInfo.textContent = n === 1 ? 'Al guardar se creará 1 movimiento (el de esa fecha).' : `Al guardar se crearán ${n} movimientos con fechas ya pasadas.`;
+    const input = { ...schedule(day), template: t ?? {} };
+    const planned = editing ? planRecurringUpdate(rule, input, today) : { ...input, startDate: day, index: 0, anchorDay: null };
+    if (!planned.active) {
+      dueInfo.textContent = 'En pausa: no se creará ningún movimiento hasta que lo reactives.';
+      return;
+    }
+    if (planned.endDate && nextDate(planned) > planned.endDate) {
+      dueInfo.textContent = 'Con esta fecha de fin ya no se creará ningún movimiento más.';
+      return;
+    }
+    const n = dueOccurrences([planned], today).length;
+    dueInfo.textContent = n === 0
+      ? `El próximo se creará el ${shortDate(nextDate(planned))}.`
+      : n === 1 ? 'Al guardar se creará 1 movimiento (el de esa fecha).' : `Al guardar se crearán ${n} movimientos con fechas ya pasadas.`;
   };
   next.addEventListener('change', updateDueInfo);
   end.addEventListener('change', updateDueInfo);
@@ -137,7 +161,9 @@ export function openRecurringForm({ rule = null } = {}) {
     const endDay = draft.hasEnd ? readDate(end) : null;
     if (cents === null) return;
     if (!day) return void (error.textContent = 'Elige la fecha del próximo movimiento.');
-    if (draft.hasEnd && (!endDay || endDay < day)) return void (error.textContent = 'La fecha de fin debe ser posterior a la próxima fecha.');
+    // Una regla ya terminada se puede editar (nota, importe…) sin tocar sus fechas.
+    const keepsFinished = editing && day === shownNext && endDay === rule.endDate;
+    if (draft.hasEnd && (!endDay || (endDay < day && !keepsFinished))) return void (error.textContent = 'La fecha de fin debe ser posterior a la próxima fecha.');
     if ((draft.type === 'expense' || draft.type === 'income') && !draft.categoryId) return void (error.textContent = 'Elige una categoría.');
     if (draft.type === 'transfer' && (!draft.toAccountId || draft.toAccountId === draft.accountId)) return void (error.textContent = 'Elige una cuenta de destino distinta.');
     if (draft.type === 'debt' && !draft.debtId) return void (error.textContent = 'Elige una deuda.');
@@ -152,7 +178,7 @@ export function openRecurringForm({ rule = null } = {}) {
       flow: draft.type === 'debt' ? draft.flow : undefined,
       note: note.value,
     };
-    const input = { active: draft.active, frequency: draft.frequency, interval: draft.interval, nextDate: day, endDate: endDay, template };
+    const input = { ...schedule(day), template };
     try {
       const { created } = editing ? store.updateRecurring(rule.id, input) : store.addRecurring(input);
       sheet.close();
@@ -188,13 +214,13 @@ export function openRecurringForm({ rule = null } = {}) {
       field('Frecuencia', segmented(FREQUENCY_OPTIONS, draft.frequency, (value) => { draft.frequency = value; updateDueInfo(); }, { label: 'Frecuencia' })),
       h('div', { class: 'switch-row card' },
         h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, 'Repetir cada'), h('span', { class: 'row-sub' }, '1 = cada semana, mes o año')),
-        stepper(draft.interval, { min: 1, max: 12, label: 'Intervalo', onChange: (value) => { draft.interval = value; updateDueInfo(); } })),
+        stepper(draft.interval, { min: 1, max: MAX_INTERVAL, label: 'Intervalo', onChange: (value) => { draft.interval = value; updateDueInfo(); } })),
       field(editing ? 'Próxima fecha' : 'Primera fecha', next, { input: next }),
       dueInfo,
       list([toggleRow('Tiene fecha de fin', draft.hasEnd, (checked) => { draft.hasEnd = checked; end.hidden = !checked; if (checked && !end.value) end.value = readDate(next) ?? todayISO(); updateDueInfo(); })], { plain: true }),
       end,
       field('Nota', note, { help: 'Se usa como nombre en la lista (por ejemplo «Netflix» o «Alquiler»).' }),
-      editing ? list([toggleRow('Activo', draft.active, (checked) => { draft.active = checked; }, { help: 'Si lo pausas, al reanudarlo no se crean las fechas que pasaron.' })], { plain: true }) : null,
+      editing ? list([toggleRow('Activo', draft.active, (checked) => { draft.active = checked; updateDueInfo(); }, { help: 'Si lo pausas, al reanudarlo no se crean las fechas que pasaron.' })], { plain: true }) : null,
       error,
       h('button', { type: 'button', class: 'btn primary', onClick: save }, 'Guardar'),
       editing ? h('button', { type: 'button', class: 'btn danger', onClick: remove }, 'Borrar programado') : null,

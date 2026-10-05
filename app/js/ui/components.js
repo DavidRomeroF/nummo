@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { monthLabel } from './format.js';
 import { COLOR_KEYS, PICKER_ICONS, ICON_LABELS, COLOR_LABELS } from '../core/catalog.js';
 import { parseAmount, centsToInput } from '../core/money.js';
-import { addMonthKey, currentMonthKey, isISODate } from '../core/dates.js';
+import { addMonthKey, currentMonthKey, isISODate, MIN_YEAR, MAX_YEAR } from '../core/dates.js';
 
 /** Cuadrado de color con símbolo o iniciales. item: { icon, color, letters? } */
 export function tile(item, size = '') {
@@ -24,13 +24,13 @@ export function section({ title = null, action = null, caption = null } = {}, ..
     caption ? h('p', { class: 'caption' }, caption) : null);
 }
 
-export function list(rows, { plain = false, label = null } = {}) {
-  return h('ul', { class: ['list', plain && 'plain'], 'aria-label': label }, rows.filter(Boolean).map((r) => h('li', null, r)));
+export function list(rows, { plain = false } = {}) {
+  return h('ul', { class: ['list', plain && 'plain'] }, rows.filter(Boolean).map((r) => h('li', null, r)));
 }
 
 /** Fila de lista; es un botón si recibe onClick. */
 export function row({
-  lead = null, title, subtitle = null, value = null, valueSub = null, valueClass = '',
+  lead = null, title, subtitle = null, value = null, valueClass = '',
   chevron = false, onClick = null, className = '', trailing = null, label = null,
 }) {
   return h(onClick ? 'button' : 'div', { class: ['row', className], type: onClick ? 'button' : null, onClick, 'aria-label': label },
@@ -38,7 +38,7 @@ export function row({
     h('span', { class: 'row-main' },
       h('span', { class: 'row-title' }, title),
       subtitle ? h('span', { class: 'row-sub' }, subtitle) : null),
-    value !== null ? h('span', { class: ['row-value', valueClass] }, value, valueSub ? h('small', null, valueSub) : null) : null,
+    value !== null ? h('span', { class: ['row-value', valueClass] }, value) : null,
     trailing,
     chevron ? icon('chevron-right', { className: 'icon chev' }) : null);
 }
@@ -84,7 +84,7 @@ export function textInput({ value = '', placeholder = '', maxLength = 40, capita
 }
 
 export function dateInput(value) {
-  return h('input', { class: 'input', type: 'date', value, min: '1970-01-01', max: '2200-12-31', required: true });
+  return h('input', { class: 'input', type: 'date', value, min: `${MIN_YEAR}-01-01`, max: `${MAX_YEAR}-12-31`, required: true });
 }
 
 /** Lee una fecha de un <input type="date">; null si está vacía o no es válida. */
@@ -94,19 +94,30 @@ export const readDate = (input) => (isISODate(input.value) ? input.value : null)
  * Campo de importe grande. read() devuelve céntimos o null (y muestra el error).
  * allowNegative/allowZero para saldos; los movimientos exigen importe > 0.
  */
-export function amountInput({ value = null, label = 'Importe', allowNegative = false, allowZero = false, autofocus = false, compact = false } = {}) {
+export function amountInput({ value = null, label = 'Importe', allowNegative = false, allowZero = false, compact = false } = {}) {
   const input = h('input', {
     class: compact ? 'input num amount-compact' : null,
     type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'done', placeholder: '0,00',
-    'aria-label': label, value: value === null ? '' : centsToInput(value), autofocus,
+    'aria-label': label, value: value === null ? '' : centsToInput(value),
   });
   const error = errorText();
   input.addEventListener('input', () => {
     error.textContent = '';
     input.removeAttribute('aria-invalid');
   });
+  // El teclado decimal de iOS no tiene signo menos: botón para cambiar el signo (saldos negativos).
+  const sign = allowNegative
+    ? h('button', { type: 'button', class: 'sign-toggle', 'aria-label': 'Cambiar entre positivo y negativo' }, '+/−')
+    : null;
+  sign?.addEventListener('click', () => {
+    const text = input.value.trim();
+    input.value = /^[-\u2212]/.test(text) ? text.slice(1) : `-${text}`;
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  });
+  const compactBox = h('div', { class: 'amount-compact-wrap' }, input, h('span', { 'aria-hidden': 'true' }, '€'));
   const el = compact
-    ? h('div', { class: 'field' }, h('div', { class: 'amount-compact-wrap' }, input, h('span', { 'aria-hidden': 'true' }, '€')), error)
+    ? h('div', { class: 'field' }, sign ? h('div', { class: 'amount-row' }, sign, compactBox) : compactBox, error)
     : h('div', { class: 'field' },
       h('div', { class: 'amount-field' }, input, h('span', { class: 'currency', 'aria-hidden': 'true' }, '€')),
       error);
@@ -253,9 +264,4 @@ export function stepper(value, { min = 1, max = 12, label, onChange }) {
     h('button', { type: 'button', 'aria-label': 'Menos', onClick: () => set(current - 1) }, '−'),
     output,
     h('button', { type: 'button', 'aria-label': 'Más', onClick: () => set(current + 1) }, '+'));
-}
-
-/** Pone el foco en el primer campo con error para que se vea y se lea. */
-export function focusFirstInvalid(root) {
-  root.querySelector('[aria-invalid="true"]')?.focus();
 }

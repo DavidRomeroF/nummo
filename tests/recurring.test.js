@@ -1,5 +1,5 @@
 import { test, assert } from './runner.js';
-import { occurrenceDate, dueOccurrences, firstIndexFrom, countDue, isFinished, nextDate } from '../app/js/core/recurring.js';
+import { occurrenceDate, dueOccurrences, firstIndexFrom, countDue, isFinished, nextDate, planRecurringUpdate, displayedNextDate } from '../app/js/core/recurring.js';
 
 const rule = (overrides) => ({
   id: 'ruleTest01', active: true, frequency: 'monthly', interval: 1, startDate: '2026-01-31', index: 0, endDate: null,
@@ -43,4 +43,31 @@ test('recurring: aviso de cuántos se crearán y fin de la regla', () => {
   assert.equal(nextDate(ended), '2026-02-28');
   assert.ok(isFinished(ended));
   assert.ok(!isFinished(rule()));
+});
+
+test('recurring: cambiar el intervalo de una regla del día 31 conserva el día de anclaje', () => {
+  const current = rule({ index: 1 }); // mostraba 28-feb
+  const shown = displayedNextDate(current, '2026-02-10');
+  assert.equal(shown, '2026-02-28');
+  const planned = planRecurringUpdate(current, { ...current, nextDate: shown, shownNextDate: shown, interval: 2, active: true }, '2026-02-10');
+  assert.equal(planned.anchorDay, 31);
+  assert.deepEqual([0, 1, 2, 3].map((i) => occurrenceDate(planned, i)), ['2026-02-28', '2026-04-30', '2026-06-30', '2026-08-31']);
+});
+
+test('recurring: elegir otra fecha reancla en ella; sin cambios no se toca la regla', () => {
+  const current = rule({ index: 2 });
+  const moved = planRecurringUpdate(current, { ...current, nextDate: '2026-05-15', shownNextDate: '2026-03-31', active: true }, '2026-03-01');
+  assert.equal(moved.startDate, '2026-05-15');
+  assert.equal(moved.index, 0);
+  assert.equal(moved.anchorDay, null);
+  const same = planRecurringUpdate(current, { ...current, nextDate: '2026-03-31', shownNextDate: '2026-03-31', active: true }, '2026-03-01');
+  assert.equal(same.startDate, current.startDate);
+  assert.equal(same.index, 2);
+});
+
+test('recurring: reanudar no recupera la pausa aunque se cambie la frecuencia', () => {
+  const paused = rule({ active: false, index: 1, startDate: '2026-01-10' });
+  const planned = planRecurringUpdate(paused, { ...paused, frequency: 'weekly', nextDate: '2026-02-10', shownNextDate: '2026-06-10', active: true }, '2026-06-01');
+  assert.equal(dueOccurrences([planned], '2026-06-01').length, 0, 'nada con fecha pasada');
+  assert.ok(nextDate(planned) >= '2026-06-01');
 });

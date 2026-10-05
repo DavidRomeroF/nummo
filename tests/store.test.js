@@ -6,7 +6,7 @@ import * as store from '../app/js/core/store.js';
 import { MIN_ITERATIONS } from '../app/js/core/crypto.js';
 import { ValidationError } from '../app/js/core/model.js';
 import { computeBalances, computeDebtTotals } from '../app/js/core/finance.js';
-import { nextDate } from '../app/js/core/recurring.js';
+import { nextDate, displayedNextDate } from '../app/js/core/recurring.js';
 
 const PIN = '112233';
 const isValidation = (e) => e instanceof ValidationError;
@@ -129,13 +129,18 @@ test('store: programados (pendientes, sin duplicar, pausa y edición)', async ()
   assert.equal(created, 3, 'agosto, septiembre y octubre');
   assert.equal(store.runRecurring('2026-10-05'), 0, 'no se duplican');
   assert.equal(store.runRecurring('2026-11-20'), 1, 'noviembre al llegar su fecha');
-  store.setRecurringActive(rule.id, false);
+  const schedule = (active, today) => {
+    const rule0 = store.getState().recurring.find((r) => r.id === rule.id);
+    const shown = displayedNextDate(rule0, today); // lo que mostraría el formulario
+    return { frequency: 'monthly', interval: 1, nextDate: shown, shownNextDate: shown, endDate: null, active, template };
+  };
+  store.updateRecurring(rule.id, schedule(false, '2026-11-20'), '2026-11-20');
   assert.equal(store.runRecurring('2027-02-20'), 0, 'pausada');
-  assert.equal(store.setRecurringActive(rule.id, true, '2027-02-20'), 0, 'al reanudar no recupera dic-feb');
+  assert.equal(store.updateRecurring(rule.id, schedule(true, '2027-02-20'), '2027-02-20').created, 0, 'al reanudar no recupera dic-feb');
   assert.equal(store.runRecurring('2027-03-15'), 1, 'marzo sí');
   const current = store.getState().recurring.find((r) => r.id === rule.id);
   const indexBefore = current.index;
-  store.updateRecurring(rule.id, { frequency: 'monthly', interval: 1, nextDate: '2027-04-01', endDate: null, active: true, template: { ...template, amount: 1499 } }, '2027-03-15');
+  store.updateRecurring(rule.id, { ...schedule(true, '2027-03-15'), template: { ...template, amount: 1499 } }, '2027-03-15');
   const updated = store.getState().recurring.find((r) => r.id === rule.id);
   assert.equal(updated.index, indexBefore, 'cambiar el importe no reancla la regla');
   assert.equal(updated.template.amount, 1499);
@@ -151,7 +156,7 @@ test('store: reanudar un programado desde su formulario no recupera las fechas d
   await setup();
   const template = { type: 'expense', amount: 500, accountId: 'accountAAA', categoryId: 'catFoodXX', note: 'Gimnasio' };
   const { rule } = store.addRecurring({ frequency: 'monthly', interval: 1, nextDate: '2026-01-10', endDate: null, active: true, template }, '2026-01-15');
-  store.setRecurringActive(rule.id, false);
+  store.updateRecurring(rule.id, { frequency: 'monthly', interval: 1, nextDate: '2026-02-10', shownNextDate: '2026-02-10', endDate: null, active: false, template }, '2026-01-15');
   const paused = store.getState().recurring.find((r) => r.id === rule.id);
   const input = { frequency: 'monthly', interval: 1, nextDate: nextDate(paused), endDate: null, active: true, template };
   const { created } = store.updateRecurring(rule.id, input, '2026-05-20');
@@ -176,4 +181,53 @@ test('store: sustituir todos los datos (restaurar copia)', async () => {
   const state = await reload();
   assert.equal(state.accounts[0].name, 'Restaurada');
   assert.ok(!state.movements.some((m) => m.id === 'mov00001'));
+});
+
+test('store: un formulario de programado abierto mientras se genera una cuota no la duplica', async () => {
+  await setup();
+  const template = { type: 'expense', amount: 1000, accountId: 'accountAAA', categoryId: 'catFoodXX', note: 'Alquiler' };
+  const { rule } = store.addRecurring({ frequency: 'monthly', interval: 1, nextDate: '2026-10-06', endDate: null, active: true, template }, '2026-10-05');
+  const shown = '2026-10-06'; // fecha que mostraba el formulario al abrirse
+  assert.equal(store.runRecurring('2026-10-06'), 1, 'pasada la medianoche se crea la del 6');
+  store.updateRecurring(rule.id, { frequency: 'monthly', interval: 1, nextDate: shown, shownNextDate: shown, endDate: null, active: true, template: { ...template, amount: 1200 } }, '2026-10-06');
+  assert.equal(store.getState().movements.filter((m) => m.recurringId === rule.id).length, 1, 'no hay una segunda del día 6');
+  assert.equal(nextDate(store.getState().recurring.find((r) => r.id === rule.id)), '2026-11-06');
+});
+
+test('store: guardar en una ventana con datos antiguos se rechaza (no pisa a la otra)', async () => {
+  await setup();
+  await idb.put('meta', 'revision', 'escrito-en-otra-ventana');
+  store.addMovement({ type: 'expense', amount: 100, date: '2026-10-10', accountId: 'accountAAA', categoryId: 'catFoodXX', note: '' });
+  await assert.rejects(() => store.flush(), (e) => e?.name === 'ConflictError');
+  store.unload();
+  vault.lock();
+});
+
+test('store: una restauración fallida conserva los cambios pendientes de guardar', async () => {
+  await setup();
+  const token = await idb.get('meta', 'revision');
+  await idb.put('meta', 'revision', 'otra'); // fuerza el fallo de los guardados
+  const pending = store.addMovement({ type: 'expense', amount: 4242, date: '2026-10-11', accountId: 'accountAAA', categoryId: 'catFoodXX', note: 'pendiente' });
+  await store.flush().catch(() => {});
+  await assert.rejects(() => store.replaceAll(sampleState()), (e) => e?.name === 'ConflictError');
+  assert.ok(store.getState().movements.some((m) => m.id === pending.id), 'los datos actuales siguen en pantalla');
+  await idb.put('meta', 'revision', token); // vuelve a poder guardarse
+  const state = await reload();
+  assert.ok(state.movements.some((m) => m.id === pending.id), 'el cambio pendiente se guardó después');
+});
+
+test('store: al reparar datos dañados se borran los bloques que quedan vacíos', async () => {
+  const data = sampleState();
+  data.movements.push({ id: 'movOld2024', date: '2024-05-05', type: 'expense', amount: 100, accountId: 'accountAAA', categoryId: 'catFoodXX', note: '', ts: 1 });
+  await setup(data);
+  // Simula un bloque con una referencia rota (p. ej. una cuenta que ya no existe).
+  await vault.saveBuckets(new Map([['mov-2024', { movements: [{ id: 'movOld2024', date: '2024-05-05', type: 'expense', amount: 100, accountId: 'noExiste1', categoryId: 'catFoodXX', note: '', ts: 1 }] }]]));
+  vault.lock();
+  store.unload();
+  assert.equal(store.loadFromBuckets(await vault.unlock(PIN)), 1);
+  await store.flush();
+  assert.ok(!(await idb.entries('vault')).some(([key]) => key === 'mov-2024'), 'el bloque vacío ya no existe');
+  vault.lock();
+  store.unload();
+  assert.equal(store.loadFromBuckets(await vault.unlock(PIN)), 0, 'no se vuelve a avisar en cada desbloqueo');
 });

@@ -90,7 +90,7 @@ export function securityView() {
         h('div', { class: 'card' },
           h('ul', { class: 'benefits' },
             h('li', null, icon('lock'), h('div', null, h('strong', null, 'Cifrado AES-256'), h('span', null, 'Todo se guarda cifrado en este dispositivo. Sin el PIN no se puede leer.'))),
-            h('li', null, icon('shield-lock'), h('div', null, h('strong', null, 'Intentos limitados'), h('span', null, 'Tras 5 PIN incorrectos hay que esperar, cada vez más tiempo.'))),
+            h('li', null, icon('shield-lock'), h('div', null, h('strong', null, 'Intentos limitados'), h('span', null, `Tras ${vault.FREE_ATTEMPTS} PIN incorrectos hay que esperar, cada vez más tiempo.`))),
             h('li', null, icon('eye-off'), h('div', null, h('strong', null, 'Privacidad'), h('span', null, 'Al salir de la app se ocultan tus datos y no se envía nada a internet.')))),
           h('p', { class: 'help' }, 'Un PIN de 6 cifras protege frente a quien coja tu móvil. La protección más fuerte la da el propio bloqueo del iPhone o Android: mantenlo activado.'))),
     ],

@@ -7,6 +7,7 @@ import { ago } from '../ui/format.js';
 import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { restoreForm, describeData } from '../ui/restore.js';
+import { pauseAutoLock, resetViews } from '../ui/session.js';
 import * as store from '../core/store.js';
 import { createBackup, toCSV, MIN_PASSWORD_LENGTH } from '../core/backup.js';
 import { ValidationError } from '../core/model.js';
@@ -17,11 +18,14 @@ async function saveFile(text, filename, type) {
   const file = new File([text], filename, { type });
   const touch = matchMedia('(pointer: coarse)').matches;
   if (touch && navigator.canShare?.({ files: [file] })) {
+    const resume = pauseAutoLock(); // el menú Compartir saca a la persona de la app
     try {
       await navigator.share({ files: [file], title: filename });
       return true;
     } catch (error) {
       if (error?.name === 'AbortError') return false; // la persona canceló
+    } finally {
+      setTimeout(resume, 1000);
     }
   }
   const url = URL.createObjectURL(file);
@@ -69,6 +73,7 @@ function openCreateBackup() {
   saveButton.addEventListener('click', async () => {
     if (!prepared) return;
     if (await saveFile(prepared.text, prepared.filename, 'application/json')) {
+      if (!store.isLoaded()) return; // se bloqueó mientras tanto
       store.updateSettings({ lastBackupAt: Date.now() });
       sheet.close();
       toast('Copia de seguridad guardada');
@@ -113,7 +118,9 @@ function openRestore() {
           try {
             await store.replaceAll(data);
             sheet.close();
-            toast('Copia restaurada');
+            resetViews(); // filtros o meses de los datos anteriores ya no tienen sentido
+            const created = store.runRecurring(); // programados pendientes de la copia
+            toast(created ? `Copia restaurada. Se han añadido ${created} movimientos programados.` : 'Copia restaurada');
           } catch (error) {
             console.error(error);
             toast('No se ha podido restaurar la copia. Tus datos no han cambiado.', { kind: 'error' });

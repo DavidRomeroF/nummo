@@ -37,17 +37,15 @@ export function computeBalances(state, untilDate = null) {
   return balances;
 }
 
-/** Por deuda: total añadido, total pagado, pendiente y fechas del primer/último movimiento. */
+/** Por deuda: total añadido, total pagado, pendiente y fecha del último movimiento. */
 export function computeDebtTotals(state) {
-  const totals = new Map(state.debts.map((d) => [d.id, { added: 0, paid: 0, pending: 0, firstDate: null, lastDate: null, count: 0 }]));
+  const totals = new Map(state.debts.map((d) => [d.id, { added: 0, paid: 0, pending: 0, lastDate: null }]));
   for (const m of state.movements) {
     if (m.type !== 'debt') continue;
     const t = totals.get(m.debtId);
     if (!t) continue;
     if (m.flow === 'add') t.added += m.amount;
     else t.paid += m.amount;
-    t.count += 1;
-    if (!t.firstDate || m.date < t.firstDate) t.firstDate = m.date;
     if (!t.lastDate || m.date > t.lastDate) t.lastDate = m.date;
   }
   for (const t of totals.values()) t.pending = t.added - t.paid;
@@ -60,21 +58,21 @@ export function summarize(state) {
   const debtTotals = computeDebtTotals(state);
   let totalBalance = 0;
   for (const a of state.accounts) if (a.includeInTotal) totalBalance += balances.get(a.id) ?? 0;
-  let owe = 0;
+  let owe = 0; // con signo: una deuda pagada de más resta de lo que debes (patrimonio exacto)
   let owed = 0;
+  let totalOwe = 0; // lo que se muestra: solo lo pendiente de cada deuda, como en la pestaña Deudas
+  let totalOwed = 0;
   for (const d of state.debts) {
     const pending = debtTotals.get(d.id).pending;
-    if (d.kind === 'owe') owe += pending;
-    else owed += pending;
+    if (d.kind === 'owe') {
+      owe += pending;
+      totalOwe += Math.max(pending, 0);
+    } else {
+      owed += pending;
+      totalOwed += Math.max(pending, 0);
+    }
   }
-  return {
-    balances,
-    debtTotals,
-    totalBalance,
-    totalOwe: Math.max(owe, 0),
-    totalOwed: Math.max(owed, 0),
-    netWorth: totalBalance - owe + owed,
-  };
+  return { balances, debtTotals, totalBalance, totalOwe, totalOwed, netWorth: totalBalance - owe + owed };
 }
 
 /**

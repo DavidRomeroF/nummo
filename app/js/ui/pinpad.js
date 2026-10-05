@@ -2,8 +2,10 @@
 
 import { h } from './dom.js';
 import { icon } from './icons.js';
+import { PIN_LENGTH } from '../core/vault.js';
 
-export function pinPad({ length = 6, onComplete }) {
+export function pinPad({ onComplete }) {
+  const length = PIN_LENGTH;
   let digits = '';
   let busy = false;
   const dots = h('div', { class: 'pin-dots', 'aria-hidden': 'true' }, Array.from({ length }, () => h('span')));
@@ -14,12 +16,17 @@ export function pinPad({ length = 6, onComplete }) {
     [...dots.children].forEach((dot, i) => dot.classList.toggle('on', i < digits.length));
     progressText.textContent = digits.length ? `${digits.length} de ${length} dígitos` : '';
   };
+  const setBusy = (value) => {
+    busy = value;
+    pad.setAttribute('aria-disabled', String(value));
+  };
   const press = (digit) => {
     if (busy || digits.length >= length) return;
     digits += digit;
     update();
     if (digits.length === length) {
       const pin = digits;
+      setBusy(true); // nada más hasta que se compruebe este PIN (ni teclas ni otro intento)
       setTimeout(() => onComplete(pin), 90); // deja ver el último punto
     }
   };
@@ -58,6 +65,7 @@ export function pinPad({ length = 6, onComplete }) {
     reset() {
       digits = '';
       update();
+      setBusy(false);
     },
     error(text) {
       message.textContent = text;
@@ -67,14 +75,12 @@ export function pinPad({ length = 6, onComplete }) {
       dots.classList.add('shake');
       digits = '';
       update();
+      setBusy(false);
     },
     info(text) {
       message.textContent = text;
       message.classList.remove('error');
     },
-    setBusy(value) {
-      busy = value;
-      pad.setAttribute('aria-disabled', String(value));
-    },
+    setBusy,
   };
 }
