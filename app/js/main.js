@@ -21,6 +21,8 @@ import { recurringView } from './views/recurring.js';
 import { backupView } from './views/backup.js';
 import { securityView } from './views/security.js';
 import { aboutView } from './views/about.js';
+import { appearanceView } from './views/appearance.js';
+import { initTheme } from './ui/theme.js';
 import * as vault from './core/vault.js';
 import * as store from './core/store.js';
 import { isCryptoAvailable } from './core/crypto.js';
@@ -44,6 +46,7 @@ router.addRoute('/mas/programados', recurringView, 'mas');
 router.addRoute('/mas/copias', backupView, 'mas');
 router.addRoute('/mas/seguridad', securityView, 'mas');
 router.addRoute('/mas/acerca', aboutView, 'mas');
+router.addRoute('/mas/apariencia', appearanceView, 'mas');
 
 function fatal(title, text) {
   replace(appRoot, h('div', { class: 'screen' },
@@ -137,6 +140,7 @@ function setupKeyboard() {
 }
 
 async function boot() {
+  initTheme(); // sigue los cambios del sistema en modo automático (theme-boot.js ya lo aplicó)
   if (window.top !== window.self) {
     fatal('No disponible', 'Por seguridad, Dinero no funciona dentro de otra página.');
     return;

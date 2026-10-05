@@ -84,7 +84,7 @@ export function debtDetailView({ id }) {
             h('p', { class: 'hero-label' }, t.pending > 0 ? (owe ? 'Te queda por pagar' : 'Te queda por cobrar') : 'Saldada'),
             h('p', { class: 'hero-value' }, formatMoney(Math.max(t.pending, 0)))),
           tile(debtBadge(debt), 'lg')),
-        progress(ratio, 'ok', owe ? 'Parte pagada' : 'Parte cobrada'),
+        progress(ratio, '', owe ? 'Parte pagada' : 'Parte cobrada'),
         h('div', { class: 'budget-meta' },
           h('span', null, `${owe ? 'Pagado' : 'Cobrado'}: ${formatMoney(t.paid)}`),
           h('span', null, `Total: ${formatMoney(t.added)}`)),

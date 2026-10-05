@@ -8,5 +8,6 @@ import './crypto.test.js';
 import './vault.test.js';
 import './store.test.js';
 import './backup.test.js';
+import './color.test.js';
 
 run();

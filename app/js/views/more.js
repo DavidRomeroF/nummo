@@ -10,6 +10,7 @@ import * as router from '../ui/router.js';
 import * as store from '../core/store.js';
 import * as vault from '../core/vault.js';
 import { AUTO_LOCK_OPTIONS } from '../core/catalog.js';
+import { getAppearance, colorLabel, MODE_OPTIONS } from '../ui/theme.js';
 
 async function deleteEverything() {
   const confirmed = await confirmDialog({
@@ -31,6 +32,8 @@ export function moreView() {
   const autoLock = AUTO_LOCK_OPTIONS.find((o) => o.seconds === state.settings.autoLockSec)?.label ?? '';
   const lastBackup = state.settings.lastBackupAt;
   const count = (n) => (n ? String(n) : null);
+  const appearance = getAppearance();
+  const modeLabel = MODE_OPTIONS.find((o) => o.value === appearance.mode)?.label ?? '';
 
   return {
     title: 'Más',
@@ -53,6 +56,7 @@ export function moreView() {
         row({ lead: tile({ icon: 'lock', color: 'gray' }), title: 'Bloquear ahora', onClick: () => lockNow() }),
       ])),
       section({ title: 'App' }, list([
+        row({ lead: tile({ icon: 'brush', color: 'pink' }), title: 'Apariencia', subtitle: `${modeLabel} · ${colorLabel(appearance.color)}`, chevron: true, onClick: go('/mas/apariencia') }),
         !pwa.isStandalone && pwa.canPromptInstall
           ? row({ lead: tile({ icon: 'device-mobile', color: 'indigo' }), title: 'Instalar la app', onClick: () => promptInstall() })
           : null,

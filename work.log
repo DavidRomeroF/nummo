@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-10-05 20:10 — Temas: modo claro/oscuro/automático y color de la app
+
+Tipo: decisión | cambio | seguridad
+
+Qué se hizo:
+- Decisiones del usuario: modo y color por separado; el color afecta a botones y detalles
+  (fondos neutros); paleta de 10 colores + cualquier color con el selector del sistema.
+- core/color.js: contraste WCAG y ajuste de luminosidad en OKLCH (conserva matiz y viveza).
+  Para cada modo calcula --accent (texto ≥ 4,5:1 sobre página y tarjetas), --accent-fill
+  (visible sobre la tarjeta), --on-accent (blanco o tinta, ≥ 4,5:1) y --accent-bg (tinte).
+- css/app.css: el modo lo fija la app con data-theme en <html> (antes solo el sistema);
+  tokens oscuros en un único bloque; botones, botón +, interruptores y barras de deudas usan
+  el color de la app; los colores de gráficas validados no cambian.
+- js/theme-boot.js: script clásico en <head> que aplica el tema guardado antes de pintar
+  (sin parpadeo, también en bienvenida y PIN). Valida los valores leídos de localStorage.
+- ui/theme.js + views/appearance.js (Más → Apariencia): modo, paleta, selector libre con vista
+  previa en directo; la preferencia se guarda sin cifrar en el dispositivo (no es dato personal).
+- Detalle: los títulos enfocados por código ya no muestran marco de foco.
+
+Por qué:
+Petición del usuario: temas claro/oscuro y color elegible que se adapte a toda la app.
+
+Archivos / recursos afectados:
+- app/js/core/color.js, app/js/theme-boot.js, app/js/ui/theme.js, app/js/views/appearance.js
+- app/css/app.css, app/index.html, app/js/main.js, app/js/views/{more,debts,shared}.js, app/sw.js
+- tests/color.test.js, tests/run.js
+
+Verificación:
+65/65 tests (nuevos: contraste garantizado con 12 colores extremos en claro y oscuro).
+Navegador: amarillo y azul marino en claro y oscuro, PIN con el tema antes de desbloquear,
+modo automático siguiendo al sistema en directo, gráficas con sus colores, vuelta al azul
+por defecto sin valores en línea. release.py --check OK.
+Pendiente: actualizar GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md con la nueva pantalla.
+
+---
+
 ## 2026-10-05 18:40 — Hito 9 (en curso) y Hito 10: rendimiento y documentación
 
 Tipo: optimización | documentación

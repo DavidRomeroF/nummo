@@ -57,7 +57,7 @@ export function debtRow(debt, totals, { onClick }) {
     h('span', { class: 'row-main' },
       h('span', { class: 'row-title' }, debt.name),
       h('span', { class: ['row-sub', due?.level === 'danger' && 'neg', due?.level === 'warn' && 'warn'] }, subtitle),
-      settled ? null : progress(paidRatio, 'ok', 'Parte pagada')),
+      settled ? null : progress(paidRatio, '', 'Parte pagada')),
     h('span', { class: 'row-value' }, formatMoney(Math.max(totals.pending, 0)), h('small', null, `de ${formatMoney(totals.added)}`)));
 }
 
