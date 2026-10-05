@@ -4,7 +4,29 @@
 
 ---
 
-## 2026-10-05 18:35 — Hito 8: PWA sin conexión, versión automática y publicación
+## 2026-10-05 18:40 — Hito 9 (en curso) y Hito 10: rendimiento y documentación
+
+Tipo: optimización | documentación
+
+Qué se hizo:
+- Medición con 20.000 movimientos (≈3 MB): desbloquear ≈46 ms, validar y cargar ≈20 ms, guardar
+  un año cifrado ≈1 ms, cálculos de una pantalla ≈8 ms (Mac, Chromium).
+- GUIA-DE-USO.md (no técnica) y DOCUMENTACION-TECNICA.md (completa) redactadas.
+- Revisión de código independiente lanzada y DETENIDA por límite de uso antes de tener
+  resultados: queda pendiente repetirla y corregir lo que encuentre.
+
+Por qué:
+Cierre del protocolo (rendimiento medido y documentación entregada).
+
+Archivos / recursos afectados:
+- GUIA-DE-USO.md, DOCUMENTACION-TECNICA.md
+
+Verificación:
+60/60 tests en verde; release.py --check OK. Pendiente: revisión de código y README.md.
+
+---
+
+## 2026-10-05 18:22 — Hito 8: PWA sin conexión, versión automática y publicación
 
 Tipo: cambio | seguridad | optimización
 
@@ -40,7 +62,7 @@ Verificación:
 
 ---
 
-## 2026-10-05 18:20 — Hitos 2 a 7: interfaz completa
+## 2026-10-05 18:19 — Hitos 2 a 7: interfaz completa
 
 Tipo: cambio | seguridad | incidencia
 

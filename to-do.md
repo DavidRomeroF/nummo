@@ -13,6 +13,9 @@
 - [ ] 🟡 [documentación] Hito 10 — GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md.
       Justificación: cierre obligatorio del protocolo.
 
+- [ ] 🔴 [seguridad] Repetir la revisión de código completa (se interrumpió por límite de uso) y corregir lo que encuentre.
+- [ ] 🟡 [documentación] README.md con resumen y pasos de publicación (están ya en DOCUMENTACION-TECNICA.md §6).
+
 ### Sugerencias (fuera del alcance de la v1)
 
 - [ ] 🟡 [funcionalidad] Validar en un iPhone real el teclado sobre las hojas (variable --kb) y el menú Compartir con archivos .json.
