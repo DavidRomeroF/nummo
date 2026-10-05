@@ -14,8 +14,6 @@
       Justificación: cierre obligatorio del protocolo.
 
 - [ ] 🔴 [seguridad] Repetir la revisión de código completa (se interrumpió por límite de uso) y corregir lo que encuentre.
-- [ ] 🟡 [documentación] Añadir «Apariencia» a GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md.
-- [ ] 🟡 [documentación] README.md con resumen y pasos de publicación (están ya en DOCUMENTACION-TECNICA.md §6).
 
 ### Sugerencias (fuera del alcance de la v1)
 
@@ -38,6 +36,7 @@
 
 ## Completados
 
+- [x] 2026-10-05 — Documentación: «Apariencia» en la guía y en la documentación técnica; README.md creado.
 - [x] 2026-10-05 — Temas: modo claro/oscuro/automático y color de la app con contraste garantizado (Más → Apariencia).
 - [x] 2026-10-05 — Hito 8: service worker (sin conexión y aviso de versión nueva), tools/release.py y publicación
       automática en GitHub Pages con acciones oficiales fijadas por commit.

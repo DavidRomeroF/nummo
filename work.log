@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-10-05 20:29 — Documentación de temas y README
+
+Tipo: documentación
+
+Qué se hizo:
+- GUIA-DE-USO.md: sección «Apariencia» (modo y color) y pregunta frecuente sobre el ajuste del color.
+- DOCUMENTACION-TECNICA.md: arquitectura de temas (theme-boot.js, ui/theme.js, core/color.js),
+  preferencia en localStorage, validación de la preferencia, 65 tests y pruebas manuales de temas.
+- README.md: resumen, enlaces a la documentación, prueba en local y publicación en GitHub Pages.
+En paralelo sigue la revisión de código completa (sus correcciones irán en commits aparte).
+
+Por qué:
+Cerrar los pendientes de documentación tras añadir los temas.
+
+Archivos / recursos afectados:
+- GUIA-DE-USO.md, DOCUMENTACION-TECNICA.md, README.md, to-do.md
+
+Verificación:
+Revisión de los textos frente al código actual (rutas, nombres de archivos y claves).
+
+---
+
 ## 2026-10-05 20:10 — Temas: modo claro/oscuro/automático y color de la app
 
 Tipo: decisión | cambio | seguridad

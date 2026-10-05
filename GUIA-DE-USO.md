@@ -11,6 +11,7 @@
 - **Presupuestos** mensuales por categoría, con aviso cuando te acercas al límite.
 - **Movimientos programados** que se apuntan solos: alquiler, nómina, suscripciones, cuotas…
 - **Análisis** con gráficas de en qué se te va el dinero y cómo evoluciona tu patrimonio.
+- **Temas**: modo claro, oscuro o automático, y el color de la app que tú elijas.
 
 **Tus datos nunca salen de tu móvil.** No hay servidores ni registros: todo se guarda cifrado en el propio dispositivo y la app se abre con un PIN.
 
@@ -173,6 +174,19 @@ En **Más → Seguridad** puedes:
 - Elegir el **bloqueo automático**: cuánto tiempo puede estar la app en segundo plano antes de volver a pedir el PIN (inmediatamente, 1, 5 o 15 minutos).
 - **Bloquearla ahora**.
 
+### Apariencia: modo claro, oscuro y color de la app
+
+En **Más → Apariencia**:
+
+- **Modo**:
+  - **Automático** sigue al iPhone o Android y cambia solo de día y de noche.
+  - **Claro** u **Oscuro** lo fijan siempre.
+- **Color**: elige uno de los 10 colores o toca el círculo multicolor para escoger **cualquier color** con el selector del móvil.
+  - Mientras eliges, la **vista previa** muestra cómo quedan los botones, los enlaces, las selecciones, los interruptores y las barras.
+  - Si un color se leería mal (por ejemplo, un amarillo muy claro), la app ajusta su tono automáticamente para que todo se lea bien, tanto en claro como en oscuro.
+
+El ajuste se guarda en el propio móvil y se aplica nada más abrir la app, también en la pantalla del PIN.
+
 ## Preguntas frecuentes
 
 **¿Mis datos se suben a internet?**
@@ -195,6 +209,9 @@ Sí, una vez instalada.
 
 **¿Cómo se actualiza?**
 Cuando haya una versión nueva verás el aviso **«Hay una versión nueva»** con el botón **Actualizar**. Después tendrás que volver a poner el PIN.
+
+**El color que elegí se ve un poco distinto en algunos sitios. ¿Es normal?**
+Sí. Para que los textos y botones se lean bien, la app oscurece o aclara ligeramente el color según el fondo (por ejemplo, un amarillo claro se ve más dorado en los enlaces). El icono de la pantalla de inicio no cambia de color: iOS y Android no lo permiten en las apps web.
 
 **¿Pueden usarla otras personas?**
 Sí: basta con pasarles la dirección. Cada persona tiene su propia app con sus propios datos y su PIN.

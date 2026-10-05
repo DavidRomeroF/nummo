@@ -16,6 +16,7 @@ Principios de diseño:
 - **Sin dependencias en tiempo de ejecución.** HTML + CSS + JavaScript (módulos ES), sin frameworks, librerías ni paso de compilación.
 - **Funciona sin conexión.** Un service worker precarga la app y avisa cuando hay versión nueva.
 - **Hosting estático.** GitHub Pages publica la carpeta `app/` mediante GitHub Actions.
+- **Temas.** Modo automático, claro u oscuro, y un color de acento elegible. El contraste está garantizado por cálculo, siguiendo WCAG AA.
 
 ## 2. Stack tecnológico
 
@@ -24,6 +25,7 @@ Principios de diseño:
 | Lenguaje | JavaScript (ES2022, módulos ES) | — | Sin transpilación. Usa `??=`, `Array.prototype.at` y `Object.hasOwn` (iOS 16.4+, Chrome 111+) |
 | UI | HTML + CSS propios | — | Tokens CSS claro/oscuro, `<dialog>`, `popover` (opcional), `color-mix`, `dvh` |
 | Gráficas | SVG generado a mano (`app/js/ui/charts.js`) | — | Sin librerías; colores validados con la guía dataviz |
+| Temas | Variables CSS + `data-theme` + color en OKLCH (`core/color.js`) | — | Contraste WCAG calculado para cada modo |
 | Almacenamiento | IndexedDB | — | Almacenes `meta` y `vault` |
 | Criptografía | WebCrypto | — | PBKDF2-HMAC-SHA-256 (600.000 iteraciones), AES-256-GCM |
 | Sin conexión | Service Worker + Cache Storage | — | `app/sw.js` |
@@ -56,6 +58,19 @@ Principios de diseño:
 └───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+Temas:
+
+- **Antes de pintar.** `js/theme-boot.js` es un script clásico y síncrono en `<head>`, compatible con la CSP. Lee la preferencia de `localStorage`, valida los valores y fija:
+  - `data-theme="light|dark"` en `<html>`;
+  - las variables `--accent`, `--accent-fill`, `--on-accent` y `--accent-bg`;
+  - las metas `color-scheme` y `theme-color`.
+- **Con la app cargada.** `ui/theme.js` sigue los cambios del sistema en modo automático y aplica la elección de la persona.
+- **Cálculo de tonos.** `core/color.js` calcula los tonos de cada modo, oscureciendo o aclarando en OKLCH:
+  - el texto de color tiene ≥ 4,5:1 frente a la página y a las tarjetas;
+  - el texto sobre los botones es blanco o tinta, ≥ 4,5:1;
+  - el botón se distingue de la tarjeta.
+- **Azul por defecto.** No se escribe ningún valor en línea: se usan los valores de `css/app.css`.
+
 Ciclo de vida (`app/js/main.js`):
 
 1. **Arranque.** Comprueba que la app no está dentro de un iframe y que hay contexto seguro, WebCrypto e IndexedDB. Después registra el service worker y prepara el bloqueo automático y el teclado.
@@ -80,6 +95,7 @@ App_Dinero/
 │   ├── icons/                icon.svg, icon-192/512.png, icon-maskable-512.png, apple-touch-icon.png
 │   └── js/
 │       ├── main.js           arranque, rutas, ciclo de vida, bloqueo automático
+│       ├── theme-boot.js     aplica el tema guardado antes de pintar (script clásico)
 │       ├── core/             lógica sin DOM (probada con tests)
 │       │   ├── money.js      céntimos: parseAmount, formatMoney…
 │       │   ├── dates.js      fechas 'AAAA-MM-DD' y meses 'AAAA-MM'
@@ -93,9 +109,10 @@ App_Dinero/
 │       │   ├── store.js      estado en memoria + operaciones + guardado
 │       │   ├── finance.js    saldos, deudas, resúmenes, presupuestos, series
 │       │   ├── recurring.js  fechas de programados
-│       │   └── backup.js     copia cifrada y CSV
+│       │   ├── backup.js     copia cifrada y CSV
+│       │   └── color.js      contraste WCAG y tonos de acento en OKLCH
 │       ├── ui/               infraestructura de interfaz (dom, componentes, hojas, avisos,
-│       │                     router, shell, gráficas, PWA, teclado PIN, iconos, formatos)
+│       │                     router, shell, gráficas, PWA, teclado PIN, iconos, formatos, tema)
 │       └── views/            pantallas y formularios
 ├── tests/                    ejecutor y tests del núcleo (abrir /tests/ en el navegador)
 ├── tools/
@@ -119,6 +136,8 @@ La app **no usa variables de entorno ni secretos**: no hay servidor, API ni clav
 | Variable | Descripción | Obligatoria | Ejemplo (no secreto) |
 |----------|-------------|-------------|----------------------|
 | `PORT` | Puerto de `tools/serve.py` (solo desarrollo) | No | `8080` |
+
+La **apariencia** se guarda por dispositivo y sin cifrar en `localStorage` (clave `dinero:apariencia`), porque es una preferencia visual y no un dato personal. Su formato es `{ mode, color, tokens: { light, dark } | null }`. No forma parte de las copias de seguridad.
 
 > En desarrollo, añade `?nosw` a la URL (`http://127.0.0.1:8080/app/?nosw`) para desactivar el service worker y ver los cambios al recargar.
 
@@ -258,6 +277,11 @@ Formato pensado para Excel en español:
 - **CSP estricta (meta).** `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'`.
   - Sin estilos ni scripts en línea.
   - Solo hay una política Trusted Types, `app-sw`, y acepta únicamente `./sw.js`.
+- **Preferencia de tema.** Se lee de `localStorage`, que podría estar manipulado. Por eso solo se aceptan:
+  - modos de una lista cerrada;
+  - colores `#RRGGBB` o `#RRGGBBAA`, comprobados con una expresión regular antes de usarlos como variables CSS.
+
+  No contiene datos personales.
 - **Anti-iframe.** La app no arranca si `window.top !== window.self`. GitHub Pages no permite la cabecera `frame-ancestors`, así que esta comprobación la sustituye.
 - **Sin red.**
   - Ni la app ni el service worker hacen peticiones a otros dominios.
@@ -306,7 +330,7 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
 ## 10. Tests
 
 - **Ejecutar.** Arranca `python3 tools/serve.py` y abre http://127.0.0.1:8080/tests/. Usan una base de datos IndexedDB aparte, `app-dinero-test`.
-- **Qué cubren (60 tests).**
+- **Qué cubren (65 tests).**
   - Interpretación y formato de importes.
   - Fechas: bisiestos, anclaje de día y cambios de mes y año.
   - Validación del modelo en modo estricto y de reparación, integridad referencial y saneado.
@@ -316,11 +340,13 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
   - Caja fuerte: crear y desbloquear, nada legible en disco, límite de intentos y cambio de PIN.
   - Almacén: persistencia, cascadas, deshacer, programados y restauración.
   - Copias: ida y vuelta, contraseña incorrecta, archivos manipulados o inválidos y CSV.
+  - Color: contraste WCAG, ida y vuelta OKLCH y legibilidad garantizada con 12 colores extremos en claro y oscuro.
 - **Comprobaciones automáticas de código.** `python3 tools/release.py --check`, también en GitHub Actions.
 - **Pruebas manuales hechas en el navegador:**
   - recorrido completo con tamaño iPhone y Android, en modo claro y oscuro;
   - funcionamiento sin conexión con el servidor parado;
-  - flujo de actualización del service worker.
+  - flujo de actualización del service worker;
+  - temas con colores extremos (amarillo, azul marino) y modo automático siguiendo al sistema.
 
 ## 11. Limitaciones conocidas y deuda técnica
 
