@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-10-05 18:35 — Hito 8: PWA sin conexión, versión automática y publicación
+
+Tipo: cambio | seguridad | optimización
+
+Qué se hizo:
+- app/sw.js: precarga de los 53 recursos con cache:'reload', primero caché y luego red, solo
+  peticiones GET del mismo origen y dentro del alcance; las navegaciones abren el armazón
+  guardado; borrado de cachés antiguas; activación de la versión nueva solo cuando la persona
+  pulsa «Actualizar» (mensaje SKIP_WAITING). Registro con Trusted Types (política «app-sw» que
+  solo admite ./sw.js).
+- tools/release.py: VERSION = hash del contenido de app/ (cualquier cambio publica versión nueva),
+  lista de recursos generada, y comprobaciones automáticas: sin innerHTML/outerHTML/
+  insertAdjacentHTML/document.write/eval/new Function, sin peticiones de red fuera del service
+  worker y sin iconos inexistentes. Con --check no modifica nada y falla si algo no cumple.
+- .github/workflows/pages.yml: publica app/ en GitHub Pages en cada push a main tras pasar
+  release.py --check. Acciones oficiales fijadas por SHA: checkout v7.0.1, configure-pages v6.0.0,
+  upload-pages-artifact v5.0.0, deploy-pages v5.0.1. Permisos mínimos; persist-credentials: false.
+- La app se repinta al detectar versión nueva o posibilidad de instalar (onPwaChange).
+
+Por qué:
+Funcionar sin conexión, instalarse en iPhone y Android y publicar sin pasos manuales propensos
+a error (olvidar subir la versión dejaría a la gente con la versión antigua en caché).
+
+Archivos / recursos afectados:
+- app/sw.js, app/js/main.js, tools/release.py, .github/workflows/pages.yml
+
+Verificación:
+- release.py --check: OK (ningún uso prohibido, todos los iconos existen).
+- Navegador: service worker activo y controlando, 53 recursos en caché, sin errores de CSP ni
+  de Trusted Types.
+- Sin conexión (servidor parado): la app carga, se desbloquea y muestra los datos.
+- Actualización: cambio de prueba → versión nueva → aviso «Hay una versión nueva» → «Actualizar»
+  → caché nueva, la antigua borrada y la app vuelve a pedir el PIN. Cambio de prueba revertido.
+
+---
+
 ## 2026-10-05 18:20 — Hitos 2 a 7: interfaz completa
 
 Tipo: cambio | seguridad | incidencia

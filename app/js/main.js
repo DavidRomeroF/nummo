@@ -3,10 +3,10 @@
 import { h, replace } from './ui/dom.js';
 import { icon } from './ui/icons.js';
 import * as router from './ui/router.js';
-import { mountShell, unmountShell } from './ui/shell.js';
+import { mountShell, unmountShell, rerender } from './ui/shell.js';
 import { closeAllSheets } from './ui/sheet.js';
 import { toast, clearToasts } from './ui/toast.js';
-import { initPwa, checkForUpdate, requestPersistence } from './ui/pwa.js';
+import { initPwa, checkForUpdate, requestPersistence, onPwaChange } from './ui/pwa.js';
 import { onSession } from './ui/session.js';
 import { initScreens, showWelcome, showLock } from './views/screens.js';
 import { homeView } from './views/home.js';
@@ -146,6 +146,7 @@ async function boot() {
     return;
   }
   initPwa();
+  onPwaChange(rerender); // aviso de versión nueva o de instalación sin esperar a otro cambio
   setupLifecycle();
   setupKeyboard();
   store.onSaveError((error) => {

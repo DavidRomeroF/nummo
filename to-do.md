@@ -8,11 +8,6 @@
 
 ### Plan de acción v1 (aprobado el 2026-10-05)
 
-- [ ] 🔴 [funcionalidad] Hito 8 — PWA: manifest, iconos, service worker sin conexión, aviso de actualización, script de versión y despliegue en GitHub Pages.
-      Detalle Android: icono adaptable (maskable), botón «Instalar» propio (Chrome), el botón/gesto «atrás»
-      cierra ventanas abiertas antes de cambiar de pantalla, copia de seguridad por descarga si no hay
-      menú Compartir, instrucciones de instalación según el sistema y nota de privacidad en «Acerca de».
-      Justificación: necesario para instalarla en iPhone y Android.
 - [ ] 🔴 [seguridad] Hito 9 — QA: tests, prueba con tamaño iPhone y Android, revisión de seguridad, limpieza y medición de rendimiento.
       Justificación: criterio de "terminado".
 - [ ] 🟡 [documentación] Hito 10 — GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md.
@@ -39,6 +34,8 @@
 
 ## Completados
 
+- [x] 2026-10-05 — Hito 8: service worker (sin conexión y aviso de versión nueva), tools/release.py y publicación
+      automática en GitHub Pages con acciones oficiales fijadas por commit.
 - [x] 2026-10-05 — Hitos 2 a 7: PIN y bloqueo, cuentas, categorías, movimientos, deudas, presupuestos,
       programados, Inicio, Análisis con gráficas, copias cifradas y CSV (probado en navegador, iPhone/Android, claro/oscuro).
 - [x] 2026-10-05 — Hito 1: núcleo (importes, fechas, modelo, cálculos, recurrentes, cifrado, caja fuerte, almacén, copias) con 59 tests en verde.
