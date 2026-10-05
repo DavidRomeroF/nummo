@@ -105,8 +105,11 @@ function lockApp({ notice = null } = {}) {
     resetViews(); // también olvida textos de búsqueda escritos
     vault.lock();
     store.unload();
-    await showLock({ warning });
-    html.classList.remove('private'); // solo cuando ya no queda nada de la sesión a la vista
+    try {
+      await showLock({ warning });
+    } finally {
+      html.classList.remove('private'); // solo cuando ya no queda nada de la sesión a la vista
+    }
   })().finally(() => {
     locking = null;
   });

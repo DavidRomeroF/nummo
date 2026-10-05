@@ -9,7 +9,8 @@ export function pinPad({ onComplete }) {
   let digits = '';
   let busy = false;
   const dots = h('div', { class: 'pin-dots', 'aria-hidden': 'true' }, Array.from({ length }, () => h('span')));
-  const message = h('p', { class: 'pin-msg', role: 'status', 'aria-live': 'polite' });
+  const message = h('p', { class: 'pin-msg', 'aria-hidden': 'true' }); // lo que se ve
+  const spoken = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' }); // lo que se anuncia
   const progressText = h('p', { class: 'sr-only', 'aria-live': 'polite' });
 
   const update = () => {
@@ -42,7 +43,7 @@ export function pinPad({ onComplete }) {
     if (key === 'del') return h('button', { type: 'button', class: 'pin-key ghost', 'aria-label': 'Borrar dígito', onClick: erase }, icon('backspace'));
     return h('button', { type: 'button', class: 'pin-key', onClick: () => press(key) }, key);
   }));
-  const el = h('div', { class: 'pin' }, dots, message, pad, progressText);
+  const el = h('div', { class: 'pin' }, dots, message, spoken, pad, progressText);
 
   const onKey = (event) => {
     if (!el.isConnected) {
@@ -69,6 +70,7 @@ export function pinPad({ onComplete }) {
     },
     error(text) {
       message.textContent = text;
+      spoken.textContent = text;
       message.classList.add('error');
       dots.classList.remove('shake');
       void dots.offsetWidth; // reinicia la animación
@@ -78,6 +80,12 @@ export function pinPad({ onComplete }) {
       setBusy(false);
     },
     info(text) {
+      message.textContent = text;
+      spoken.textContent = text;
+      message.classList.remove('error');
+    },
+    /** Cambia el texto visible sin anunciarlo (cuenta atrás: no repetir cada segundo). */
+    quiet(text) {
       message.textContent = text;
       message.classList.remove('error');
     },

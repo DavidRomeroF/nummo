@@ -2,12 +2,13 @@
 // «atrás» de Android (Chrome cierra los diálogos modales con él) sin manipular el historial.
 
 import { h, uid } from './dom.js';
+import { focusKey, restoreFocus } from './focus.js';
 
 const openSheets = new Set();
 const openAlerts = new Set(); // funciones que cierran una alerta como «Cancelar»
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function closeDialog(dialog, done, immediate) {
+function closeDialog(dialog, done, immediate, openerKey = null) {
   let finished = false;
   const finish = () => {
     if (finished) return;
@@ -15,6 +16,12 @@ function closeDialog(dialog, done, immediate) {
     dialog.close();
     dialog.remove();
     done?.();
+    // Devuelve el foco al botón que abrió la hoja (o a su equivalente si la vista se repintó).
+    if (!immediate) {
+      requestAnimationFrame(() => {
+        if (!restoreFocus(document.getElementById('app'), openerKey)) document.querySelector('main h1')?.focus({ preventScroll: true });
+      });
+    }
   };
   // Mientras se va, ya no admite toques ni teclas: un doble toque en «Guardar» no guarda dos veces.
   dialog.inert = true;
@@ -31,6 +38,7 @@ function closeDialog(dialog, done, immediate) {
  */
 export function openSheet({ title, body, primary = null, tall = false, onClose = null, focus = null }) {
   const titleId = uid('t');
+  const openerKey = focusKey(document.activeElement);
   const primaryButton = primary
     ? h('button', { type: 'button', class: 'btn-text strong', onClick: () => primary.onClick() }, primary.label)
     : h('span', { 'aria-hidden': 'true' });
@@ -47,7 +55,7 @@ export function openSheet({ title, body, primary = null, tall = false, onClose =
       if (closed) return;
       closed = true;
       openSheets.delete(api);
-      closeDialog(dialog, onClose, immediate);
+      closeDialog(dialog, onClose, immediate, openerKey);
     },
   };
   dialog.addEventListener('cancel', (event) => {

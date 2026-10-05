@@ -75,8 +75,10 @@ test('store: ajustar el saldo actual de una cuenta', async () => {
 
 test('store: borrar una cuenta conserva los pagos de deudas sin cuenta', async () => {
   await setup();
-  assert.deepEqual(store.accountUsage('accountAAA'), { movements: 5, recurring: 0 });
+  assert.deepEqual(store.accountUsage('accountAAA'), { movements: 3, transfers: 1, debtMovements: 2, recurring: 0 });
+  const efectivoAntes = computeBalances(store.getState()).get('accountBBB');
   store.deleteAccount('accountAAA');
+  assert.equal(computeBalances(store.getState()).get('accountBBB'), efectivoAntes, 'la otra cuenta de la transferencia conserva su saldo');
   const state = await reload();
   assert.ok(!state.accounts.some((a) => a.id === 'accountAAA'));
   assert.ok(!state.movements.some((m) => m.type !== 'debt' && (m.accountId === 'accountAAA' || m.toAccountId === 'accountAAA')));
@@ -102,8 +104,10 @@ test('store: deudas con importe inicial, pagos y borrado en cascada', async () =
   store.addMovement({ type: 'debt', debtId: debt.id, flow: 'pay', amount: 25000, date: '2026-10-05', accountId: 'accountAAA', note: 'Cuota' });
   let state = await reload();
   assert.equal(computeDebtTotals(state).get(debt.id).pending, 875000);
-  store.updateDebt(debt.id, { name: 'Coche', kind: 'owed' });
-  assert.equal(store.getState().debts.find((d) => d.id === debt.id).kind, 'owe', 'el tipo no se puede cambiar');
+  const pagoAntes = computeBalances(store.getState()).get('accountAAA');
+  store.updateDebt(debt.id, { name: 'Coche', kind: 'owed' }); // se apuntó al revés
+  assert.equal(store.getState().debts.find((d) => d.id === debt.id).kind, 'owed', 'el tipo se puede corregir');
+  assert.equal(computeBalances(store.getState()).get('accountAAA'), pagoAntes + 2 * 25000, 'la cuota pasa a ser un cobro');
   store.deleteDebt(debt.id);
   state = await reload();
   assert.ok(!state.debts.some((d) => d.id === debt.id));

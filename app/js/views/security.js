@@ -15,7 +15,7 @@ function openChangePin() {
   let step = 'current';
   let current = null;
   let fresh = null;
-  const title = h('p', { class: 'alert-title' }, 'Escribe tu PIN actual');
+  const title = h('p', { class: 'alert-title', 'aria-live': 'polite' }, 'Escribe tu PIN actual');
   const pad = pinPad({
     onComplete: async (pin) => {
       if (step === 'current') {

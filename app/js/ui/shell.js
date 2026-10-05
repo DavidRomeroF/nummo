@@ -5,6 +5,7 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 import * as router from './router.js';
 import * as store from '../core/store.js';
+import { focusKey, restoreFocus } from './focus.js';
 
 const TABS = [
   { id: 'inicio', path: '/', label: 'Inicio', icon: 'home' },
@@ -78,6 +79,7 @@ function render() {
     return;
   }
   const samePath = route.path === lastPath;
+  const focused = root.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   if (!samePath && lastPath) scrollByPath.set(lastPath, window.scrollY);
   const y = samePath ? window.scrollY : scrollByPath.get(route.path) ?? 0;
   const nodes = [topbar(view), h('main', { class: 'view', id: 'main' }, view.body)];
@@ -88,6 +90,7 @@ function render() {
   root.replaceChildren(...nodes);
   root.className = 'app';
   window.scrollTo(0, y);
+  if (samePath && focused) restoreFocus(root, focused); // el mismo botón tras repintar
   if (!samePath) {
     document.title = `${view.title} · Dinero`;
     if (lastPath) root.querySelector('h1')?.focus({ preventScroll: true });

@@ -45,8 +45,12 @@ test('vault: PIN incorrecto y bloqueo progresivo tras 5 intentos', async () => {
   assert.equal(vault.delayAfter(5), 30_000);
   assert.equal(vault.delayAfter(6), 60_000);
   assert.equal(vault.delayAfter(30), 15 * 60_000, 'máximo 15 minutos');
-  // Simula que ha pasado el tiempo de espera: el PIN correcto entra y pone el contador a cero.
+  // Adelantar la hora del dispositivo no acorta la espera (también se mide con un reloj monotónico).
   await idb.put('meta', 'lockout', { failures: 5, until: Date.now() - 1 });
+  await assert.rejects(() => vault.unlock('135790'), (e) => e instanceof vault.LockedOutError, 'cambiar la hora no sirve');
+  assert.ok((await vault.getLockout()).until > Date.now(), 'la cuenta atrás sigue a la vista');
+  // Simula que ha pasado de verdad el tiempo de espera: el PIN correcto entra y pone el contador a cero.
+  vault.expireLockoutForTests();
   await vault.unlock('135790');
   assert.deepEqual(await vault.getLockout(), { failures: 0, until: 0 });
 });

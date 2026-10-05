@@ -31,12 +31,15 @@ export function openDebtForm({ debt = null, kind = 'owe' } = {}) {
   const amount = editing ? null : amountInput({ label: 'Importe de la deuda' });
   const date = editing ? null : dateInput(todayISO());
   const accountHelp = h('p', { class: 'help' });
+  const kindHelp = h('p', { class: 'help' }, 'Al guardar, sus movimientos contarán al revés en los saldos de tus cuentas (úsalo si la apuntaste al revés).');
   const due = dateInput(debt?.dueDate ?? '');
+  due.setAttribute('aria-label', 'Fecha límite');
   due.hidden = !draft.hasDue;
   const note = textInput({ value: debt?.note ?? '', placeholder: 'Opcional', maxLength: LIMITS.note });
   const error = errorText();
 
   const refreshTexts = () => {
+    kindHelp.hidden = !editing || draft.kind === debt.kind;
     nameLabel.textContent = draft.kind === 'owe' ? '¿A quién se lo debes?' : '¿Quién te lo debe?';
     accountHelp.textContent = draft.kind === 'owe'
       ? 'Si ese dinero entró en una de tus cuentas, elígela y su saldo subirá. Si no (por ejemplo, una compra a plazos), deja «Ninguna».'
@@ -53,7 +56,7 @@ export function openDebtForm({ debt = null, kind = 'owe' } = {}) {
     }
     try {
       if (editing) {
-        store.updateDebt(debt.id, { name: name.value, note: note.value, dueDate });
+        store.updateDebt(debt.id, { kind: draft.kind, name: name.value, note: note.value, dueDate });
         toast('Cambios guardados');
         sheet.close();
         return;
@@ -94,7 +97,8 @@ export function openDebtForm({ debt = null, kind = 'owe' } = {}) {
   };
 
   const body = [
-    editing ? null : segmented(KIND_OPTIONS, draft.kind, (value) => { draft.kind = value; refreshTexts(); }, { label: 'Tipo de deuda' }),
+    segmented(KIND_OPTIONS, draft.kind, (value) => { draft.kind = value; refreshTexts(); }, { label: 'Tipo de deuda' }),
+    kindHelp,
     field(nameLabel, name),
     amount?.el,
     date ? field('Fecha', date) : null,
@@ -165,7 +169,9 @@ export function openDebtMovementForm({ debt, flow = 'pay', movement = null }) {
     }
   };
 
-  const remove = () => {
+  const remove = async () => {
+    const confirmed = await confirmDialog({ title: '¿Borrar este movimiento?', text: 'Podrás deshacerlo justo después.', confirmLabel: 'Borrar', danger: true });
+    if (!confirmed) return;
     const removed = store.deleteMovement(movement.id);
     sheet.close();
     if (removed) toast('Movimiento borrado', { action: { label: 'Deshacer', onClick: () => store.restoreMovement(removed) } });

@@ -71,7 +71,7 @@ Para sacar del cajero, pasar dinero al ahorro, etc.: **+** → **Transferencia**
 
 ### Corregir o borrar un movimiento
 
-Toca el movimiento en cualquier lista, cambia lo que necesites y pulsa **Guardar**. Para borrarlo, pulsa **Borrar movimiento** (y **Deshacer** si fue sin querer).
+Toca el movimiento en cualquier lista, cambia lo que necesites y pulsa **Guardar**. Para borrarlo, pulsa **Borrar movimiento** y confírmalo. Si fue sin querer, pulsa **Deshacer** en el aviso que aparece abajo.
 
 ### Buscar y filtrar
 
@@ -96,6 +96,7 @@ Dentro de cada deuda verás cuánto **te queda**, una barra de progreso y el his
 
 - **Registrar pago** o **Registrar cobro**: pagos o cobros parciales, o «Todo» de una vez.
 - **Me prestan más** o **Presto más**: si la deuda crece.
+- **Editar**: cambia el nombre, la nota o la fecha límite. Si la apuntaste al revés (era «Me deben» y no «Debo»), cambia también el tipo: los saldos de tus cuentas se corrigen solos.
 
 > Los pagos de deudas **no cuentan como gasto** en las estadísticas, porque devolver dinero no es consumir. Sí bajan el saldo de la cuenta desde la que pagas y aparecen en el resumen del mes, en la línea «Deudas».
 
@@ -137,6 +138,7 @@ Cada gráfica tiene un enlace **Ver tabla** con las cifras exactas.
 - **Ajustar saldo**: si el saldo de la app no coincide con el del banco, edita la cuenta y escribe el saldo real. Tus movimientos no cambian.
 - **Sumar al total**: desactívalo, por ejemplo, para inversiones que no quieres contar como dinero disponible.
 - **Archivar**: oculta una cuenta que ya no usas sin perder su historial.
+- **Borrar**: elimina la cuenta con sus gastos, ingresos y transferencias. Las cuentas con las que hacía transferencias mantienen su saldo, y los pagos de deudas se conservan. Antes de borrar, la app te dice exactamente qué se perderá. Si solo quieres dejar de verla, mejor archívala.
 - **Ordenar**: cambia el orden con las flechas.
 
 ### Categorías

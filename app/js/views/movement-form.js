@@ -1,7 +1,7 @@
 // Hoja para añadir o editar un gasto, ingreso o transferencia (con opción de repetirlo).
 
 import { h, replace } from '../ui/dom.js';
-import { openSheet } from '../ui/sheet.js';
+import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import {
   amountInput, segmented, categoryGrid, chipPicker, field, dateInput, readDate, textInput, errorText, emptyState,
@@ -150,7 +150,9 @@ export function openMovementForm({ movement = null, preset = {} } = {}) {
     }
   };
 
-  const remove = () => {
+  const remove = async () => {
+    const confirmed = await confirmDialog({ title: '¿Borrar este movimiento?', text: 'Podrás deshacerlo justo después.', confirmLabel: 'Borrar', danger: true });
+    if (!confirmed) return;
     const removed = store.deleteMovement(movement.id);
     sheet.close();
     if (removed) toast('Movimiento borrado', { action: { label: 'Deshacer', onClick: () => store.restoreMovement(removed) } });

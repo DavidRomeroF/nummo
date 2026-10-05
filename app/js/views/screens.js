@@ -71,7 +71,7 @@ export function showWelcome() {
 
 function showCreatePin({ data, next }) {
   let first = null;
-  const title = h('h1', null, 'Crea un PIN');
+  const title = h('h1', { 'aria-live': 'polite' }, 'Crea un PIN');
   const text = h('p', { class: 'text' }, 'Elige 6 números. Lo necesitarás cada vez que abras la app.');
   const pad = pinPad({
     onComplete: async (pin) => {
@@ -120,7 +120,7 @@ function showCreatePin({ data, next }) {
 // --- Desbloqueo -------------------------------------------------------------------------------
 
 const mmss = (ms) => {
-  const total = Math.ceil(ms / 1000);
+  const total = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };
 
@@ -131,18 +131,20 @@ export async function showLock({ warning = null } = {}) {
   const countdown = (until) => {
     clearInterval(timer);
     pad.setBusy(true);
-    const tick = () => {
-      const left = until - Date.now();
-      if (left <= 0) {
-        clearInterval(timer);
-        pad.setBusy(false);
-        pad.info('Ya puedes volver a intentarlo.');
+    // La cuenta atrás corre con el reloj monotónico: cambiar la hora no la altera.
+    const end = performance.now() + until - Date.now();
+    const waitText = () => `Demasiados intentos. Espera ${mmss(end - performance.now())}.`;
+    // Se anuncia al empezar y al terminar; cada segundo solo cambia el texto visible.
+    pad.info(waitText());
+    timer = setInterval(() => {
+      if (end > performance.now()) {
+        pad.quiet(waitText());
         return;
       }
-      pad.info(`Demasiados intentos. Espera ${mmss(left)}.`);
-    };
-    timer = setInterval(tick, 1000);
-    tick();
+      clearInterval(timer);
+      pad.setBusy(false);
+      pad.info('Ya puedes volver a intentarlo.');
+    }, 1000);
   };
 
   async function tryUnlock(pin) {
@@ -187,8 +189,12 @@ export async function showLock({ warning = null } = {}) {
     h('button', { type: 'button', class: 'btn-text', onClick: forgotPin }, '¿Has olvidado el PIN?'),
   ], { onLeave: () => clearInterval(timer) });
 
-  const lockout = await vault.getLockout();
-  if (lockout.until > Date.now()) countdown(lockout.until);
+  try {
+    const lockout = await vault.getLockout();
+    if (lockout.until > Date.now()) countdown(lockout.until);
+  } catch (error) {
+    console.error(error); // el desbloqueo volverá a comprobarlo
+  }
 }
 
 async function forgotPin() {

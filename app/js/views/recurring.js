@@ -92,6 +92,7 @@ export function openRecurringForm({ rule = null } = {}) {
   const shownNext = rule ? displayedNextDate(rule, today) : today;
   const next = dateInput(shownNext);
   const end = dateInput(rule?.endDate ?? '');
+  end.setAttribute('aria-label', 'Fecha de fin');
   end.hidden = !draft.hasEnd;
   const note = textInput({ value: t?.note ?? '', placeholder: 'Por ejemplo: Alquiler', maxLength: LIMITS.note });
   const dueInfo = h('p', { class: 'help', 'aria-live': 'polite' });

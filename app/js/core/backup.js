@@ -37,7 +37,9 @@ export async function createBackup(state, password, { iterations = DEFAULT_ITERA
   checkPassword(password);
   const salt = randomBytes(SALT_BYTES);
   const key = await deriveKey(password, salt, iterations);
-  const { iv, ct } = await encryptJSON(key, { exportedAt: now.toISOString(), data: state }, AAD);
+  // Al restaurarla, «última copia» debe ser esta misma, no la anterior.
+  const data = { ...state, settings: { ...state.settings, lastBackupAt: now.getTime() } };
+  const { iv, ct } = await encryptJSON(key, { exportedAt: now.toISOString(), data }, AAD);
   const envelope = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,

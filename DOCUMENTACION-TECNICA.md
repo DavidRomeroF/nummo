@@ -83,6 +83,13 @@ Ciclo de vida (`app/js/main.js`):
    4. vacía el estado;
    5. muestra el PIN.
 
+Accesibilidad de la interfaz (`ui/focus.js`, `ui/sheet.js`, `ui/pinpad.js`):
+
+- **Foco estable.** Al repintar una vista, el foco vuelve al mismo botón (se identifica por su tipo y su texto). Al cerrar una hoja vuelve al botón que la abrió o, si ya no existe, al título de la pantalla.
+- **Alertas seguras.** Las confirmaciones empiezan con el foco en «Cancelar», así que Intro o Espacio nunca confirman por error.
+- **Anuncios medidos.** Los cambios de paso al crear o cambiar el PIN se anuncian. La cuenta atrás por intentos fallidos se anuncia al empezar y al terminar, no cada segundo.
+- **Avisos con «Deshacer».** Duran 8 s y no desaparecen mientras tienen el foco o el dedo o el puntero encima.
+
 ## 4. Estructura del proyecto
 
 ```
@@ -212,6 +219,7 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
   - transferencia: −importe en el origen y +importe en el destino;
   - movimiento de deuda con cuenta: signo = `(kind==='owe') === (flow==='add') ? + : −`.
 - **Pendiente de una deuda.** Es Σ`add` − Σ`pay`.
+- **Tipo de deuda.** Se puede cambiar al editarla, para corregir una deuda apuntada al revés. Como el signo depende de `kind`, el cambio invierte el efecto de todos sus movimientos en las cuentas.
 - **Patrimonio neto.** Saldo de las cuentas con `includeInTotal` − lo que debes + lo que te deben.
 - **Resumen del mes.**
   - Los movimientos de deuda **no** son gasto ni ingreso: van en «Deudas», y solo si pasaron por una cuenta.
@@ -222,7 +230,9 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
   - Se generan como mucho 500 por ejecución.
   - Al reanudar no se recuperan las fechas de la pausa.
 - **Borrados en cascada.**
-  - **Cuenta:** se borran sus gastos, ingresos y transferencias. Los pagos de deudas se conservan, sin cuenta, para no alterar lo pendiente.
+  - **Cuenta:** se borran sus gastos, ingresos, transferencias y programados.
+    - Por cada transferencia borrada, la otra cuenta recibe la diferencia en su saldo inicial, así que su saldo no cambia.
+    - Los pagos de deudas (y sus programados) se conservan sin cuenta, para no alterar lo pendiente.
   - **Categoría:** sus movimientos pasan a la categoría que elija la persona.
   - **Deuda:** se borra con sus movimientos y programados.
 
@@ -248,6 +258,7 @@ AAD de cada bloque: `app-dinero:bucket:v1:<clave>`. Impide intercambiar bloques 
 ```
 
 - La contraseña tiene al menos 8 caracteres y es independiente del PIN.
+- Dentro de la copia, `settings.lastBackupAt` es la fecha de la propia copia. Así, al restaurarla, «Última copia» no queda desfasada.
 - Al restaurar se valida todo en **modo estricto**: cualquier incoherencia rechaza el archivo sin tocar los datos actuales.
 
 ### CSV
@@ -267,6 +278,7 @@ Formato pensado para Excel en español:
   - Comprobación implícita: si el PIN no es el correcto, el descifrado de la DEK falla, así que no se guarda ningún hash del PIN.
   - Se rechazan PIN triviales.
   - Tras 5 fallos seguidos hay que esperar 30 s, el doble en cada fallo siguiente, hasta un máximo de 15 min.
+  - La espera se guarda con la hora del dispositivo y, mientras la app sigue abierta, también con un reloj monotónico (`performance.now()`). Adelantar la hora no la acorta, y la cuenta atrás de la pantalla tampoco cambia.
   - Cambiar el PIN solo vuelve a cifrar la DEK.
 - **Bloqueo automático y privacidad.**
   - Se bloquea al pasar a segundo plano según el ajuste (por defecto, 1 minuto).
@@ -299,7 +311,7 @@ Formato pensado para Excel en español:
 - **Varias ventanas a la vez.** Las escrituras van protegidas por la marca `revision`, así que una ventana con datos antiguos nunca sobrescribe a otra.
 - **Acciones destructivas.**
   - Hay que escribir «BORRAR» para borrar todos los datos.
-  - Todos los borrados piden confirmación; borrar un movimiento se puede deshacer.
+  - Todos los borrados piden confirmación, también el de un movimiento. Borrar un movimiento se puede deshacer justo después.
 - **Cadena de suministro.**
   - No hay dependencias en tiempo de ejecución.
   - Los iconos están copiados, con versión fijada y trazados validados.
@@ -312,7 +324,7 @@ Formato pensado para Excel en español:
 
 - **Un PIN de 6 cifras es débil frente a un ataque fuera de línea.** Si alguien extrajera la base de datos del dispositivo, podría probar todos los PIN. La protección fuerte en reposo la da el cifrado del propio sistema (bloqueo del iPhone/Android). Las copias usan contraseña larga por este motivo. Ver mejoras en `to-do.md`.
 - **Memoria y entorno de ejecución.** JavaScript no garantiza borrar datos de la memoria. Un atacante con control de la página (extensiones, depurador) podría leer los datos mientras la app está desbloqueada.
-- **El límite de intentos se guarda en el propio dispositivo.** Solo frena intentos manuales.
+- **El límite de intentos se guarda en el propio dispositivo.** Solo frena intentos manuales. Si alguien cierra la app y adelanta la hora del dispositivo, la espera guardada se acorta: sin conexión no hay una hora fiable.
 
 ## 9. Decisiones de optimización
 
@@ -350,14 +362,18 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
     - programados: día de anclaje, formulario abierto mientras se genera una cuota, reanudación sin recuperar la pausa;
     - escrituras de otra ventana y restauración fallida que conserva los cambios;
     - limpieza de bloques vacíos al reparar;
-    - intentos de PIN simultáneos;
-    - totales de deudas pagadas de más.
+    - intentos de PIN simultáneos y espera que no se acorta al adelantar la hora;
+    - totales de deudas pagadas de más;
+    - borrar una cuenta sin alterar el saldo de las demás;
+    - corregir el tipo de una deuda;
+    - la copia guarda su propia fecha como «última copia».
 - **Comprobaciones automáticas de código.** `python3 tools/release.py --check`, también en GitHub Actions.
 - **Pruebas manuales hechas en el navegador:**
   - recorrido completo con tamaño iPhone y Android, en modo claro y oscuro;
   - funcionamiento sin conexión con el servidor parado;
   - flujo de actualización del service worker;
-  - temas con colores extremos (amarillo, azul marino) y modo automático siguiendo al sistema.
+  - temas con colores extremos (amarillo, azul marino) y modo automático siguiendo al sistema;
+  - confirmación y «Deshacer» al borrar, foco al cerrar hojas, cambio de tipo de deuda y cuenta atrás del PIN con la hora adelantada.
 
 ## 11. Limitaciones conocidas y deuda técnica
 

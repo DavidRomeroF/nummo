@@ -44,11 +44,17 @@ export class LockedOutError extends Error {
 
 let dek = null;
 let revision; // marca de la última escritura que conoce esta instancia
+let lockedUntilMono = 0; // espera por intentos con reloj monotónico: adelantar la hora no la acorta
 let kdfIterations = DEFAULT_ITERATIONS;
 
 /** Solo para tests: menos iteraciones para que la batería de pruebas sea rápida. */
 export function setIterationsForTests(n) {
   kdfIterations = n;
+}
+
+/** Solo para tests: da por cumplida la espera medida con el reloj monotónico. */
+export function expireLockoutForTests() {
+  lockedUntilMono = 0;
 }
 
 export const isValidPin = (pin) => typeof pin === 'string' && new RegExp(`^\\d{${PIN_LENGTH}}$`).test(pin);
@@ -68,11 +74,15 @@ export function delayAfter(failures) {
   return Math.min(BASE_DELAY_MS * 2 ** (failures - FREE_ATTEMPTS), MAX_DELAY_MS);
 }
 
+/** Fallos seguidos y hora (del reloj del dispositivo) hasta la que hay que esperar. */
 export async function getLockout() {
   const value = await idb.get('meta', LOCKOUT_KEY);
+  const stored = Number.isSafeInteger(value?.until) ? value.until : 0;
+  // Si alguien adelanta la hora del dispositivo, manda la espera medida con el reloj monotónico.
+  const monoLeft = lockedUntilMono - performance.now();
   return {
     failures: Number.isSafeInteger(value?.failures) ? value.failures : 0,
-    until: Number.isSafeInteger(value?.until) ? value.until : 0,
+    until: monoLeft > 0 ? Math.max(stored, Date.now() + monoLeft) : stored,
   };
 }
 
@@ -104,6 +114,7 @@ async function openDek(pin) {
       failures = (Number.isSafeInteger(value?.failures) ? value.failures : 0) + 1;
       const delay = delayAfter(failures);
       until = delay ? Date.now() + delay : 0;
+      if (delay) lockedUntilMono = performance.now() + delay;
       return { failures, until };
     });
     throw new WrongPinError(until, failures);
@@ -131,6 +142,7 @@ export async function create(pin, buckets) {
     await idb.replaceAll({ meta: [[META_KEY, meta], [REVISION_KEY, token]], vault });
     dek = key;
     revision = token;
+    lockedUntilMono = 0; // caja fuerte nueva: sin intentos fallidos
   } finally {
     dekRaw.fill(0);
   }
@@ -196,4 +208,5 @@ export async function destroy() {
   await idb.clearAll(); // si falla, la sesión sigue igual (no queda a medias)
   dek = null;
   revision = undefined;
+  lockedUntilMono = 0;
 }

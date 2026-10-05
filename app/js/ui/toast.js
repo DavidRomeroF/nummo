@@ -25,17 +25,42 @@ function bringToFront(el) {
 export function toast(message, { action = null, duration = 4000, kind = '' } = {}) {
   const box = ensureContainer();
   let timer = null;
+  let remaining = action ? Math.max(duration, 8000) : duration; // con acción, tiempo para pulsarla
+  let startedAt = 0;
+  const holds = new Set(); // 'focus' | 'pointer': mientras haya alguno, el aviso no caduca
   const dismiss = () => {
     clearTimeout(timer);
+    holds.add('gone'); // ya no se vuelve a programar
     item.remove();
     if (supportsPopover && box.childElementCount === 0 && box.matches(':popover-open')) box.hidePopover();
   };
-  const item = h('div', { class: ['toast', kind], role: kind === 'error' ? 'alert' : 'status' },
-    h('span', null, message),
-    action ? h('button', { type: 'button', onClick: () => { dismiss(); action.onClick(); } }, action.label) : null);
+  const run = () => {
+    startedAt = performance.now();
+    timer = setTimeout(dismiss, remaining);
+  };
+  const hold = (reason) => {
+    if (holds.size === 0) {
+      clearTimeout(timer);
+      remaining = Math.max(remaining - (performance.now() - startedAt), 2000);
+    }
+    holds.add(reason);
+  };
+  const release = (reason) => {
+    if (holds.delete(reason) && holds.size === 0) run();
+  };
+  const item = h('div', {
+    class: ['toast', kind],
+    role: kind === 'error' ? 'alert' : 'status',
+    onFocusin: () => hold('focus'),
+    onFocusout: () => release('focus'),
+    onPointerenter: () => hold('pointer'),
+    onPointerleave: () => release('pointer'),
+  },
+  h('span', null, message),
+  action ? h('button', { type: 'button', onClick: () => { dismiss(); action.onClick(); } }, action.label) : null);
   box.append(item);
   bringToFront(box);
-  timer = setTimeout(dismiss, action ? Math.max(duration, 6000) : duration);
+  run();
   return dismiss;
 }
 

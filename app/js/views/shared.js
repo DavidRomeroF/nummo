@@ -81,8 +81,9 @@ export function budgetItem(b, category, { onClick = null } = {}) {
         h('span', { class: b.remaining < 0 ? 'neg' : '' }, b.remaining < 0 ? `${formatMoney(-b.remaining)} de más` : `Quedan ${formatMoney(b.remaining)}`))));
 }
 
-/** Botones subir/bajar para ordenar una lista (accesibles, sin arrastrar). */
+/** Botones subir/bajar para ordenar una lista (accesibles, sin arrastrar; nombran el elemento). */
 export function moveButtons(items, index, reorder) {
+  const name = items[index].name;
   const move = (delta) => {
     const ids = items.map((x) => x.id);
     const [moved] = ids.splice(index, 1);
@@ -90,6 +91,6 @@ export function moveButtons(items, index, reorder) {
     reorder(ids);
   };
   return h('span', { class: 'toolbar' },
-    h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Subir', disabled: index === 0, onClick: () => move(-1) }, icon('arrow-up')),
-    h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Bajar', disabled: index === items.length - 1, onClick: () => move(1) }, icon('arrow-down')));
+    h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Subir ${name}`, disabled: index === 0, onClick: () => move(-1) }, icon('arrow-up')),
+    h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Bajar ${name}`, disabled: index === items.length - 1, onClick: () => move(1) }, icon('arrow-down')));
 }

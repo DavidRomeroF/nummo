@@ -131,12 +131,16 @@ export function openAccountForm({ account = null } = {}) {
 
   const remove = async () => {
     const usage = store.accountUsage(account.id);
-    const details = usage.movements
-      ? `Se borrarán sus ${usage.movements} movimientos (gastos, ingresos y transferencias); los pagos de deudas se conservarán sin cuenta.`
-      : 'Esta cuenta no tiene movimientos.';
+    const details = [
+      usage.movements ? `Se ${usage.movements === 1 ? 'borrará su único movimiento' : `borrarán sus ${usage.movements} movimientos`} (gastos, ingresos y transferencias).` : 'No tiene gastos, ingresos ni transferencias.',
+      usage.transfers ? 'Las cuentas con las que hizo transferencias conservarán su saldo actual.' : '',
+      usage.debtMovements ? `${usage.debtMovements === 1 ? 'Su pago o cobro de deuda se conservará' : `Sus ${usage.debtMovements} pagos o cobros de deudas se conservarán`} sin cuenta.` : '',
+      usage.recurring ? `También se ${usage.recurring === 1 ? 'borrará 1 programado' : `borrarán ${usage.recurring} programados`}.` : '',
+      'Si solo quieres ocultarla, archívala.',
+    ].filter(Boolean).join(' ');
     const confirmed = await confirmDialog({
       title: `¿Borrar «${account.name}»?`,
-      text: `${details}${usage.recurring ? ` También se borrarán ${usage.recurring} programados.` : ''} Si solo quieres ocultarla, archívala.`,
+      text: details,
       confirmLabel: 'Borrar',
       danger: true,
     });

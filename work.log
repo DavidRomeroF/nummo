@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-10-05 21:20 — Última pasada de revisión: 8 correcciones más
+
+Tipo: seguridad | cambio | incidencia
+
+Qué se hizo:
+- Borrar una cuenta alteraba el saldo de otras (sus transferencias desaparecían). Ahora cada cuenta
+  afectada recibe la diferencia en su saldo inicial y su saldo no cambia. El aviso de confirmación
+  detalla qué se borra (movimientos, programados) y qué se conserva (pagos de deudas sin cuenta).
+- Foco: al repintar una vista, el foco vuelve al mismo botón; al cerrar una hoja, al botón que la
+  abrió (o al título). Nuevo ui/focus.js. Las flechas de ordenar dicen qué elemento mueven.
+- Borrar un movimiento (normal o de deuda) pide confirmación. El aviso «Deshacer» dura 8 s y no
+  caduca mientras tiene el foco o el puntero encima.
+- Espera por intentos de PIN: se mide también con reloj monotónico mientras la app está abierta, así
+  que adelantar la hora no la acorta; la cuenta atrás tampoco cambia con la hora.
+- Pantalla del PIN: si falla al leer el estado de intentos, se muestra igual; el bloqueo siempre
+  retira la protección de privacidad aunque falle al pintar el PIN.
+- Accesibilidad: la cuenta atrás se anuncia al empezar y al terminar (no cada segundo); los cambios
+  de paso al crear o cambiar el PIN se anuncian; fechas límite y de fin con etiqueta.
+- Tipo de deuda editable (para corregir una deuda apuntada al revés); un aviso explica el efecto.
+- La copia de seguridad guarda su propia fecha como «última copia».
+
+Por qué:
+Hallazgos de la pasada final de la revisión de código (huecos no cubiertos por la primera ronda).
+
+Archivos / recursos afectados:
+- app/js/core/store.js, vault.js, backup.js
+- app/js/main.js
+- app/js/ui/focus.js (nuevo), shell.js, sheet.js, toast.js, pinpad.js
+- app/js/views/accounts.js, movement-form.js, debt-forms.js, recurring.js, screens.js, security.js, shared.js
+- tests/store.test.js, vault.test.js, backup.test.js
+- GUIA-DE-USO.md, DOCUMENTACION-TECNICA.md, to-do.md, app/sw.js (versión)
+
+Verificación:
+- 74/74 tests en verde (con nuevas comprobaciones: saldo de otras cuentas, tipo de deuda, espera con
+  la hora adelantada, fecha de la copia). tools/release.py sin avisos (58 recursos).
+- En el navegador: confirmación al borrar con foco en «Cancelar», «Deshacer» vivo a los 9 s con el
+  puntero encima, foco de vuelta a la fila y a «Editar» al cerrar hojas, cambio de tipo de deuda
+  (+3.000 € de diferencia con 6 cuotas de 250 € y vuelta exacta al deshacerlo), cuenta atrás que no
+  se salta adelantando la hora 20 minutos.
+
+---
+
 ## 2026-10-05 20:48 — Revisión de código completa y correcciones
 
 Tipo: seguridad | cambio | incidencia | limpieza

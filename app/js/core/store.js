@@ -215,22 +215,40 @@ export function reorderAccounts(ids) {
 }
 
 /** Movimientos y programados que se verían afectados al borrar una cuenta. */
+/** Qué pasaría al borrar una cuenta (para explicarlo antes de confirmar). */
 export function accountUsage(id) {
   const s = requireState();
+  const uses = (m) => m.accountId === id || m.toAccountId === id;
   return {
-    movements: s.movements.filter((m) => m.accountId === id || m.toAccountId === id).length,
-    recurring: s.recurring.filter((r) => r.template.accountId === id || r.template.toAccountId === id).length,
+    movements: s.movements.filter((m) => m.type !== 'debt' && uses(m)).length, // se borran
+    transfers: s.movements.filter((m) => m.type === 'transfer' && uses(m)).length,
+    debtMovements: s.movements.filter((m) => m.type === 'debt' && m.accountId === id).length, // se conservan sin cuenta
+    recurring: s.recurring.filter((r) => r.template.type !== 'debt' && uses(r.template)).length,
   };
 }
 
 /**
  * Borra una cuenta con sus gastos, ingresos, transferencias y programados.
- * Los pagos de deudas se conservan (sin cuenta) para no alterar lo que queda por pagar.
+ * - Los pagos de deudas se conservan (sin cuenta) para no alterar lo que queda por pagar.
+ * - Las otras cuentas de sus transferencias conservan su saldo actual: se compensa su saldo de
+ *   partida con lo que aportaban esas transferencias (si no, dejarían de cuadrar con el banco).
  */
 export function deleteAccount(id) {
   const s = requireState();
   mustFind(s.accounts, id, 'La cuenta');
+  const compensation = new Map();
+  for (const m of s.movements) {
+    if (m.type !== 'transfer' || (m.accountId !== id && m.toAccountId !== id)) continue;
+    const other = m.accountId === id ? m.toAccountId : m.accountId;
+    compensation.set(other, (compensation.get(other) ?? 0) + (other === m.toAccountId ? m.amount : -m.amount));
+  }
+  // Se valida todo antes de cambiar nada (todo o nada).
+  const adjusted = [...compensation].map(([accountId, delta]) => {
+    const account = mustFind(s.accounts, accountId, 'La cuenta');
+    return normalizeAccount({ ...account, initial: account.initial + delta });
+  });
   const keys = new Set([CORE_BUCKET]);
+  for (const account of adjusted) s.accounts[s.accounts.findIndex((a) => a.id === account.id)] = account;
   s.movements = s.movements.filter((m) => {
     if (m.type === 'debt') {
       if (m.accountId === id) {
@@ -395,7 +413,8 @@ export function addDebt(input, initial = null) {
 export function updateDebt(id, input) {
   const s = requireState();
   const current = mustFind(s.debts, id, 'La deuda');
-  const next = normalizeDebt({ ...current, ...input, id, kind: current.kind });
+  // El tipo se puede corregir: los efectos en las cuentas se calculan a partir de él.
+  const next = normalizeDebt({ ...current, ...input, id });
   s.debts[s.debts.indexOf(current)] = next;
   commit(CORE_BUCKET);
   return next;

@@ -6,12 +6,14 @@
 
 ## Pendientes
 
-### Plan de acción v1 (aprobado el 2026-10-05)
+### Publicación (la hace la persona propietaria)
 
-- [ ] 🔴 [seguridad] Hito 9 — QA: tests, prueba con tamaño iPhone y Android, revisión de seguridad, limpieza y medición de rendimiento.
-      Justificación: criterio de "terminado".
-- [ ] 🟡 [documentación] Hito 10 — GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md.
-      Justificación: cierre obligatorio del protocolo.
+- [ ] 🔴 [funcionalidad] Crear el repositorio público en GitHub, subir el código y activar Pages
+      (Settings → Pages → Source: GitHub Actions). Pasos en README.md y DOCUMENTACION-TECNICA.md §6.
+      Justificación: sin publicar no se puede instalar en el iPhone ni en Android.
+- [ ] 🟡 [funcionalidad] Primera prueba en el iPhone real: instalar desde Safari, crear el PIN, hacer una copia
+      y guardarla en Archivos, y comprobar el teclado sobre las hojas.
+      Justificación: hay detalles de iOS que el navegador del ordenador no reproduce.
 
 
 ### Sugerencias (fuera del alcance de la v1)
@@ -25,8 +27,6 @@
       comprobación de referencias (store.checkRefs y la de model.normalizeData).
       Justificación: evitar que los mensajes y reglas diverjan.
 
-- [ ] 🟡 [funcionalidad] Validar en un iPhone real el teclado sobre las hojas (variable --kb) y el menú Compartir con archivos .json.
-      Justificación: el emulador del navegador no reproduce el teclado de iOS ni su hoja de compartir.
 - [ ] 🟢 [funcionalidad] Tamaño de letra dinámico de iOS (font: -apple-system-body) para quien usa letra grande.
       Justificación: accesibilidad; requiere revisar todos los tamaños fijos.
 - [ ] 🟢 [funcionalidad] Pantallas de arranque (splash) de iOS con apple-touch-startup-image.
@@ -44,7 +44,13 @@
 
 ## Completados
 
-- [x] 2026-10-05 — Hito 9: revisión de código completa (9 revisores) y corrección de todos los fallos confirmados; 74 tests.
+- [x] 2026-10-05 — Última pasada de revisión: 8 fallos más corregidos (borrar una cuenta ya no cambia el saldo de
+      otras, foco al repintar y al cerrar hojas, confirmación al borrar un movimiento, espera del PIN con reloj
+      monotónico, pantalla del PIN robusta, anuncios de accesibilidad, tipo de deuda editable, fecha de la copia).
+- [x] 2026-10-05 — Hito 10: GUIA-DE-USO.md y DOCUMENTACION-TECNICA.md (actualizadas con cada cambio).
+
+- [x] 2026-10-05 — Hito 9: QA (tamaño iPhone/Android, rendimiento con 20.000 movimientos) y revisión de código
+      completa (9 revisores) con todos los fallos confirmados corregidos; 74 tests.
 - [x] 2026-10-05 — Documentación: «Apariencia» en la guía y en la documentación técnica; README.md creado.
 - [x] 2026-10-05 — Temas: modo claro/oscuro/automático y color de la app con contraste garantizado (Más → Apariencia).
 - [x] 2026-10-05 — Hito 8: service worker (sin conexión y aviso de versión nueva), tools/release.py y publicación

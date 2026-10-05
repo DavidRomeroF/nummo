@@ -12,7 +12,9 @@ test('backup: crear y restaurar con la contraseña correcta', async () => {
   assert.equal(filename, 'dinero-copia-2026-10-05.json');
   assert.ok(!text.includes('Hermano') && !text.includes('Nómina'), 'el archivo no contiene datos legibles');
   const { data, exportedAt } = await openBackup(parseBackup(text), 'contraseña larga');
-  assert.deepEqual(data, sampleState());
+  const expected = sampleState();
+  expected.settings.lastBackupAt = FAST.now.getTime(); // la copia se guarda como «última copia»
+  assert.deepEqual(data, expected);
   assert.ok(exportedAt.startsWith('2026-10-05'));
 });
 
