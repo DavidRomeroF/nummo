@@ -4,6 +4,56 @@
 
 ---
 
+## 2026-10-05 18:20 — Hitos 2 a 7: interfaz completa
+
+Tipo: cambio | seguridad | incidencia
+
+Qué se hizo:
+- Interfaz sin frameworks: ui/dom.js construye el DOM sin innerHTML (todo texto entra como
+  nodo de texto), hojas inferiores y alertas sobre <dialog> nativo (Esc y «atrás» de Android
+  las cierran), avisos con «Deshacer», enrutado por hash (subpáginas en el historial).
+- Pantallas: bienvenida (aviso de instalar antes en iPhone), crear PIN (rechaza PIN triviales),
+  desbloqueo con límite de intentos y cuenta atrás, «¿Has olvidado el PIN?» (borrado con
+  confirmación escrita), cuentas iniciales, Inicio, Movimientos (búsqueda en todo el historial y
+  filtros), Deudas y detalle, Análisis, Más, Cuentas (símbolo o iniciales, color, orden,
+  archivar, ajustar saldo), Categorías, Presupuestos, Programados, Copia de seguridad,
+  Seguridad (cambiar PIN, bloqueo automático) y Acerca de.
+- Gráficas SVG propias siguiendo la guía dataviz: colores de serie validados con su script
+  (verde agua/naranja: ΔE daltonismo 9,2 claro / 9,4 oscuro), lectura al tocar o con teclado,
+  tabla equivalente; anillo de reparto limitado a 5 categorías + «Otras».
+- Iconos de la app generados con tools/make_icons.py (QuickLook); manifest.webmanifest.
+- Privacidad al salir: clase .private oculta la app y las hojas en la captura del selector.
+
+Incidencias encontradas probando en el navegador (iPhone 390×844, claro y oscuro) y corregidas:
+- Bloqueo espurio: un evento «visible» sin «oculto» previo contaba como ausencia larga.
+- Hojas: las filas con overflow:hidden se colapsaban a 0 px (grid con altura limitada) →
+  grid-auto-rows: max-content.
+- «2340,12» frente a «11.325,62»: Intl en español no agrupa 4 cifras → useGrouping 'always'.
+- Emulación Android detectada como iPad → se excluye Android antes de mirar la pantalla táctil.
+- PNG con esquinas blancas (QuickLook aplana la transparencia) → iconos PNG a sangre.
+- Campos invisibles dentro de tarjetas (mismo fondo) → fondo de página en .card .input.
+- Reanudar un programado desde su formulario recuperaba las fechas de la pausa → corregido en
+  store.updateRecurring y cubierto con un test nuevo.
+- preview_start no puede lanzar procesos en ~/Documents (permiso de macOS): servidor arrancado
+  desde la terminal y vista previa conectada a http://localhost:8080.
+
+Por qué:
+Completar las funciones acordadas con una interfaz nativa en iPhone y Android.
+
+Archivos / recursos afectados:
+- app/index.html, app/manifest.webmanifest, app/css/app.css, app/icons/*
+- app/js/main.js, app/js/ui/*.js, app/js/views/*.js
+- app/js/core/{catalog,money,vault,store}.js (etiquetas accesibles, agrupación, verifyPin,
+  isWeakPin, reanudación de programados)
+- tools/make_icons.py, tests/{money,store}.test.js
+
+Verificación:
+60/60 tests en verde. Recorrido manual en el navegador: crear PIN, cuentas iniciales, gasto con
+deshacer, bloqueo/desbloqueo tras recargar, deudas y detalle, análisis con gráficas, edición de
+cuenta con iniciales, programados, modo claro y oscuro. Consola sin errores.
+
+---
+
 ## 2026-10-05 17:50 — Hito 1 completado: cálculos, almacén, copias y tests
 
 Tipo: cambio | seguridad | optimización

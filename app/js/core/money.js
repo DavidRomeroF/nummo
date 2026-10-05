@@ -2,8 +2,10 @@
 
 export const MAX_CENTS = 99_999_999_999; // 999.999.999,99 €
 
-const fmtCurrency = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
-const fmtSigned = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', signDisplay: 'exceptZero' });
+// useGrouping 'always': "2.340,12 €" (por defecto, en español, los números de 4 cifras no se agrupan
+// y en una lista "2340,12" junto a "11.325,62" confunde).
+const fmtCurrency = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', useGrouping: 'always' });
+const fmtSigned = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', signDisplay: 'exceptZero', useGrouping: 'always' });
 const fmtCompact = new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 });
 
 export function isCents(value, { min = -MAX_CENTS, max = MAX_CENTS } = {}) {

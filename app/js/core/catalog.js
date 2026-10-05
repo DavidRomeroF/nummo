@@ -20,6 +20,30 @@ export const PICKER_ICONS = [
   'tag', 'star', 'dots',
 ];
 
+/** Nombres en español para lectores de pantalla (VoiceOver/TalkBack). */
+export const ICON_LABELS = {
+  'shopping-cart': 'Carrito', basket: 'Cesta', 'tools-kitchen-2': 'Cubiertos', coffee: 'Café', pizza: 'Pizza',
+  beer: 'Cerveza', 'glass-full': 'Copa', cake: 'Tarta', home: 'Casa', building: 'Edificio', bulb: 'Bombilla',
+  droplet: 'Agua', flame: 'Gas', wifi: 'Internet', 'device-mobile': 'Móvil', tool: 'Herramienta', hammer: 'Martillo',
+  'plant-2': 'Planta', bus: 'Autobús', car: 'Coche', 'gas-station': 'Gasolinera', parking: 'Aparcamiento', train: 'Tren',
+  plane: 'Avión', bike: 'Bicicleta', motorbike: 'Moto', world: 'Mundo', beach: 'Playa', 'device-tv': 'Televisión',
+  movie: 'Cine', music: 'Música', 'device-gamepad-2': 'Videojuegos', ticket: 'Entrada', book: 'Libro', school: 'Estudios',
+  camera: 'Cámara', headphones: 'Auriculares', 'device-laptop': 'Portátil', cloud: 'Nube', 'shopping-bag': 'Bolsa de compra',
+  shirt: 'Camiseta', hanger: 'Percha', diamond: 'Joyas', scissors: 'Peluquería', brush: 'Pintura', package: 'Paquete',
+  truck: 'Mudanza', 'first-aid-kit': 'Botiquín', pill: 'Medicinas', dental: 'Dentista', stethoscope: 'Médico',
+  barbell: 'Gimnasio', 'ball-football': 'Fútbol', swimming: 'Natación', paw: 'Mascotas', 'baby-carriage': 'Bebé',
+  heart: 'Corazón', users: 'Familia', user: 'Persona', gift: 'Regalo', confetti: 'Fiesta', umbrella: 'Paraguas',
+  shield: 'Seguro', receipt: 'Recibo', 'file-invoice': 'Factura', 'building-bank': 'Banco', 'credit-card': 'Tarjeta',
+  cash: 'Efectivo', 'cash-banknote': 'Billete', wallet: 'Cartera', 'pig-money': 'Hucha', coin: 'Moneda', coins: 'Monedas',
+  'chart-line': 'Inversión', 'trending-up': 'Rendimiento', briefcase: 'Trabajo', 'receipt-refund': 'Reembolso',
+  'report-money': 'Informe', 'currency-euro': 'Euro', tag: 'Etiqueta', star: 'Estrella', dots: 'Otros',
+};
+
+export const COLOR_LABELS = {
+  blue: 'Azul', indigo: 'Índigo', purple: 'Morado', pink: 'Rosa', red: 'Rojo', orange: 'Naranja', amber: 'Ámbar',
+  green: 'Verde', teal: 'Verde azulado', cyan: 'Cian', brown: 'Marrón', gray: 'Gris', graphite: 'Grafito',
+};
+
 export const ACCOUNT_TYPES = [
   { key: 'bank', label: 'Cuenta bancaria', icon: 'building-bank' },
   { key: 'card', label: 'Tarjeta', icon: 'credit-card' },

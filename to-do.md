@@ -8,22 +8,6 @@
 
 ### Plan de acción v1 (aprobado el 2026-10-05)
 
-- [ ] 🔴 [seguridad] Hito 2 — Bloqueo: crear PIN, desbloqueo, bloqueo automático, límite de intentos, cambio de PIN y pantalla de privacidad.
-      Justificación: los datos deben estar cifrados desde el primer movimiento.
-- [ ] 🔴 [funcionalidad] Hito 3 — Cuentas, categorías y movimientos (alta rápida, lista por meses, búsqueda y filtros, edición, borrado con deshacer).
-      Detalle: cuentas ilimitadas (banco, tarjeta, efectivo, ahorro, inversión…) con símbolo o iniciales
-      (p. ej. «BBVA») y color a elegir, saldo inicial, reordenar, archivar e incluir/excluir del total.
-      Categorías con símbolo y color editables. Símbolos de línea estilo iOS (set Tabler Icons, licencia MIT,
-      ~80 iconos copiados dentro de la app: sin conexiones externas). Sin logotipos oficiales de bancos.
-      Justificación: es el uso diario principal; los símbolos y colores permiten identificar cuentas de un vistazo.
-- [ ] 🔴 [funcionalidad] Hito 4 — Deudas «Debo» y «Me deben», con pagos y cobros parciales y vínculo opcional a cuentas.
-      Justificación: requisito principal del encargo.
-- [ ] 🟡 [funcionalidad] Hito 5 — Presupuestos mensuales por categoría y movimientos recurrentes.
-      Justificación: funciones extra confirmadas para la v1.
-- [ ] 🟡 [funcionalidad] Hito 6 — Inicio (resumen) y Análisis (gráficas SVG propias).
-      Justificación: funciones extra confirmadas para la v1.
-- [ ] 🔴 [seguridad] Hito 7 — Copias de seguridad cifradas (exportar y restaurar) y exportación a CSV.
-      Justificación: con los datos solo en el iPhone, la copia es la única forma de no perderlos.
 - [ ] 🔴 [funcionalidad] Hito 8 — PWA: manifest, iconos, service worker sin conexión, aviso de actualización, script de versión y despliegue en GitHub Pages.
       Detalle Android: icono adaptable (maskable), botón «Instalar» propio (Chrome), el botón/gesto «atrás»
       cierra ventanas abiertas antes de cambiar de pantalla, copia de seguridad por descarga si no hay
@@ -36,6 +20,12 @@
 
 ### Sugerencias (fuera del alcance de la v1)
 
+- [ ] 🟡 [funcionalidad] Validar en un iPhone real el teclado sobre las hojas (variable --kb) y el menú Compartir con archivos .json.
+      Justificación: el emulador del navegador no reproduce el teclado de iOS ni su hoja de compartir.
+- [ ] 🟢 [funcionalidad] Tamaño de letra dinámico de iOS (font: -apple-system-body) para quien usa letra grande.
+      Justificación: accesibilidad; requiere revisar todos los tamaños fijos.
+- [ ] 🟢 [funcionalidad] Pantallas de arranque (splash) de iOS con apple-touch-startup-image.
+      Justificación: hoy iOS muestra un fondo liso mientras carga (es breve).
 - [ ] 🟡 [seguridad] Desbloqueo con Face ID mediante passkey (WebAuthn + extensión PRF), manteniendo el PIN como respaldo.
       Justificación: más cómodo sin rebajar el cifrado; requiere iOS 18+ y pruebas en un iPhone real.
 - [ ] 🟢 [seguridad] Opción de contraseña alfanumérica en lugar de PIN de 6 dígitos.
@@ -49,4 +39,6 @@
 
 ## Completados
 
+- [x] 2026-10-05 — Hitos 2 a 7: PIN y bloqueo, cuentas, categorías, movimientos, deudas, presupuestos,
+      programados, Inicio, Análisis con gráficas, copias cifradas y CSV (probado en navegador, iPhone/Android, claro/oscuro).
 - [x] 2026-10-05 — Hito 1: núcleo (importes, fechas, modelo, cálculos, recurrentes, cifrado, caja fuerte, almacén, copias) con 59 tests en verde.

@@ -490,6 +490,8 @@ export function updateRecurring(id, input, today = todayISO()) {
     ? { startDate: input.nextDate, index: 0 }
     : { startDate: current.startDate, index: current.index };
   const next = normalizeRecurring({ ...current, ...input, ...schedule, id });
+  // Reanudar sin tocar las fechas: no se recuperan las ocurrencias de la pausa.
+  if (next.active && !current.active && !scheduleChanged) next.index = firstIndexFrom(next, today);
   checkRefs(next.template);
   s.recurring[s.recurring.indexOf(current)] = next;
   const { keys, created } = generateDue(today);

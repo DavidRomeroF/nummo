@@ -6,6 +6,7 @@ import * as store from '../app/js/core/store.js';
 import { MIN_ITERATIONS } from '../app/js/core/crypto.js';
 import { ValidationError } from '../app/js/core/model.js';
 import { computeBalances, computeDebtTotals } from '../app/js/core/finance.js';
+import { nextDate } from '../app/js/core/recurring.js';
 
 const PIN = '112233';
 const isValidation = (e) => e instanceof ValidationError;
@@ -144,6 +145,18 @@ test('store: programados (pendientes, sin duplicar, pausa y edición)', async ()
   const after = await reload();
   assert.equal(after.movements.filter((m) => m.note === 'Netflix').length, 5, 'los movimientos creados se conservan');
   assert.ok(!after.movements.some((m) => m.recurringId === rule.id));
+});
+
+test('store: reanudar un programado desde su formulario no recupera las fechas de la pausa', async () => {
+  await setup();
+  const template = { type: 'expense', amount: 500, accountId: 'accountAAA', categoryId: 'catFoodXX', note: 'Gimnasio' };
+  const { rule } = store.addRecurring({ frequency: 'monthly', interval: 1, nextDate: '2026-01-10', endDate: null, active: true, template }, '2026-01-15');
+  store.setRecurringActive(rule.id, false);
+  const paused = store.getState().recurring.find((r) => r.id === rule.id);
+  const input = { frequency: 'monthly', interval: 1, nextDate: nextDate(paused), endDate: null, active: true, template };
+  const { created } = store.updateRecurring(rule.id, input, '2026-05-20');
+  assert.equal(created, 0, 'feb-may no se crean');
+  assert.equal(nextDate(store.getState().recurring.find((r) => r.id === rule.id)), '2026-06-10');
 });
 
 test('store: un programado con referencias inválidas se pausa en lugar de fallar', async () => {

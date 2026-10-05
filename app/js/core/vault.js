@@ -21,10 +21,11 @@ const BASE_DELAY_MS = 30_000;
 const MAX_DELAY_MS = 15 * 60_000;
 
 export class WrongPinError extends Error {
-  constructor(lockedUntil) {
+  constructor(lockedUntil, failures) {
     super('PIN incorrecto');
     this.name = 'WrongPinError';
     this.lockedUntil = lockedUntil; // 0 si aún quedan intentos libres
+    this.failures = failures; // fallos seguidos, incluido este
   }
 }
 
@@ -45,6 +46,10 @@ export function setIterationsForTests(n) {
 }
 
 export const isValidPin = (pin) => typeof pin === 'string' && new RegExp(`^\\d{${PIN_LENGTH}}$`).test(pin);
+
+const SEQUENCES = '01234567890 98765432109';
+/** PIN demasiado fácil: todos iguales (111111) o consecutivos (123456, 654321). */
+export const isWeakPin = (pin) => /^(\d)\1+$/.test(pin) || SEQUENCES.includes(pin);
 export const isUnlocked = () => dek !== null;
 
 /** 'new' si no hay datos todavía; 'locked' si hay una caja fuerte creada. */
@@ -90,7 +95,7 @@ async function openDek(pin) {
     const delay = delayAfter(failures);
     const until = delay ? Date.now() + delay : 0;
     await idb.put('meta', LOCKOUT_KEY, { failures, until });
-    throw new WrongPinError(until);
+    throw new WrongPinError(until, failures);
   }
   if (lockout.failures > 0) await idb.put('meta', LOCKOUT_KEY, { failures: 0, until: 0 });
   return raw;
@@ -151,6 +156,11 @@ export async function replaceBuckets(buckets) {
   const meta = await idb.get('meta', META_KEY);
   const vault = await encryptBuckets(dek, buckets);
   await idb.replaceAll({ meta: [[META_KEY, meta]], vault });
+}
+
+/** Comprueba un PIN (cuenta como intento a efectos del límite). */
+export async function verifyPin(pin) {
+  (await openDek(pin)).fill(0);
 }
 
 /** Comprueba el PIN actual y vuelve a cifrar la DEK con el nuevo (los datos no se recifran). */

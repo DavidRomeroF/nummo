@@ -27,7 +27,7 @@ test('money: negativos solo si se permiten', () => {
 });
 
 test('money: formato en euros (es-ES)', () => {
-  assert.equal(plain(formatMoney(123456)), '1234,56 €');
+  assert.equal(plain(formatMoney(123456)), '1.234,56 €', 'agrupa también las cifras de 4 dígitos');
   assert.equal(plain(formatMoney(1234567)), '12.345,67 €');
   assert.equal(plain(formatMoney(-50)), '-0,50 €');
   assert.equal(plain(formatSigned(1250)), '+12,50 €');
