@@ -6,10 +6,8 @@
 
 ## Pendientes
 
-### Plan de acción v1 (propuesto, pendiente de aprobación)
+### Plan de acción v1 (aprobado el 2026-10-05)
 
-- [ ] 🔴 [funcionalidad] Hito 1 — Núcleo: importes en céntimos, fechas locales, validación, cifrado, IndexedDB y estado en memoria, con tests.
-      Justificación: todo lo demás se apoya en esta base; los errores aquí afectan a saldos y datos.
 - [ ] 🔴 [seguridad] Hito 2 — Bloqueo: crear PIN, desbloqueo, bloqueo automático, límite de intentos, cambio de PIN y pantalla de privacidad.
       Justificación: los datos deben estar cifrados desde el primer movimiento.
 - [ ] 🔴 [funcionalidad] Hito 3 — Cuentas, categorías y movimientos (alta rápida, lista por meses, búsqueda y filtros, edición, borrado con deshacer).
@@ -51,4 +49,4 @@
 
 ## Completados
 
-- (ninguno todavía)
+- [x] 2026-10-05 — Hito 1: núcleo (importes, fechas, modelo, cálculos, recurrentes, cifrado, caja fuerte, almacén, copias) con 59 tests en verde.

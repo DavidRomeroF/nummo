@@ -1,0 +1,6 @@
+:root { color-scheme: light dark; font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+body { margin: 0 auto; max-width: 900px; padding: 16px; background: Canvas; color: CanvasText; }
+#summary { font-weight: 600; }
+.pass { color: #1e7d32; }
+.fail { color: #c62828; }
+li.fail { font-weight: 600; }

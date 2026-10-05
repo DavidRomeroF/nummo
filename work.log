@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-10-05 17:50 — Hito 1 completado: cálculos, almacén, copias y tests
+
+Tipo: cambio | seguridad | optimización
+
+Qué se hizo:
+- finance.js: saldos, pendiente de deudas, patrimonio neto, resumen mensual (deudas aparte,
+  transferencias fuera), totales por categoría, presupuestos (aviso al 80 %, rojo al pasarse),
+  series de 12 meses y de patrimonio. Todo en una pasada O(n), con caché por versión del estado.
+- recurring.js: fechas de programados sin deriva (siempre desde la fecha de inicio), tope de
+  500 por ejecución y reanudación sin recuperar las fechas pausadas.
+- store.js: estado en memoria + operaciones validadas + guardado cifrado encadenado (sin
+  escrituras solapadas; si falla, los bloques quedan pendientes y se reintentan). Borrados en
+  cascada coherentes: al borrar una cuenta los pagos de deudas se conservan sin cuenta.
+- backup.js: copia cifrada con contraseña propia (≥ 8 caracteres, PBKDF2 + AES-GCM),
+  validación estricta al restaurar y CSV para Excel (separador «;», coma decimal, BOM) con
+  protección contra inyección de fórmulas.
+- tests/: ejecutor propio sin dependencias + 59 tests (importes, fechas, modelo, cálculos,
+  recurrentes, cifrado, caja fuerte con IndexedDB real, almacén y copias).
+Incidencia: preview_start no puede lanzar procesos dentro de ~/Documents (permiso de macOS);
+el servidor se arranca desde la terminal y la vista previa se conecta a http://localhost:8080.
+
+Por qué:
+Cerrar el núcleo con pruebas antes de construir la interfaz.
+
+Archivos / recursos afectados:
+- app/js/core/{finance,recurring,store,backup}.js
+- tests/{index.html,runner.js,runner.css,run.js,fixtures.js,*.test.js}
+
+Verificación:
+59/59 tests en verde en el navegador. Corregido un test que pedía 200 KB a getRandomValues
+(límite 64 KB). Medición: derivar la clave del PIN (600.000 iteraciones) tarda ~200 ms en el Mac.
+
+---
+
 ## 2026-10-05 17:45 — Identidad de git y primer commit
 
 Tipo: decisión | seguridad
