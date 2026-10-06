@@ -11,6 +11,7 @@ import * as store from '../core/store.js';
 import * as vault from '../core/vault.js';
 import { AUTO_LOCK_OPTIONS } from '../core/catalog.js';
 import { getAppearance, colorLabel, MODE_OPTIONS } from '../ui/theme.js';
+import * as bankService from '../core/bank/service.js';
 
 async function deleteEverything() {
   const confirmed = await confirmDialog({
@@ -21,6 +22,11 @@ async function deleteEverything() {
     requireText: 'BORRAR',
   });
   if (!confirmed) return;
+  try {
+    await bankService.revokeAll(); // que el banco no siga dando acceso a datos que ya no existen
+  } catch {
+    // sin red: los permisos caducarán solos
+  }
   try {
     await vault.destroy();
   } catch (error) {
@@ -52,12 +58,13 @@ export function moreView() {
       }) : null,
       section({ title: 'Tus datos' }, list([
         row({ lead: tile({ icon: 'building-bank', color: 'blue' }), title: 'Cuentas', value: count(state.accounts.filter((a) => !a.archived).length), chevron: true, onClick: go('/mas/cuentas') }),
+        row({ lead: tile({ icon: 'refresh', color: 'green' }), title: 'Bancos y extractos', subtitle: state.connections.length ? `${state.connections.length} ${state.connections.length === 1 ? 'banco conectado' : 'bancos conectados'}` : 'Conectar tu banco o importar Excel/CSV', chevron: true, onClick: go('/mas/bancos') }),
         row({ lead: tile({ icon: 'tag', color: 'orange' }), title: 'Categorías', chevron: true, onClick: go('/mas/categorias') }),
         row({ lead: tile({ icon: 'target', color: 'green' }), title: 'Presupuestos', value: count(state.budgets.length), chevron: true, onClick: go('/mas/presupuestos') }),
         row({ lead: tile({ icon: 'repeat', color: 'purple' }), title: 'Programados', subtitle: 'Alquiler, nómina, suscripciones…', value: count(state.recurring.filter((r) => r.active).length), chevron: true, onClick: go('/mas/programados') }),
       ])),
       section({ title: 'Seguridad y copias' }, list([
-        row({ lead: tile({ icon: 'shield-lock', color: 'graphite' }), title: 'Seguridad', subtitle: `PIN · bloqueo ${autoLock.toLowerCase()}`, chevron: true, onClick: go('/mas/seguridad') }),
+        row({ lead: tile({ icon: 'shield-lock', color: 'graphite' }), title: 'Seguridad', subtitle: `${vault.currentSecretKind() === 'password' ? 'Contraseña' : 'PIN'} · bloqueo ${autoLock.toLowerCase()}`, chevron: true, onClick: go('/mas/seguridad') }),
         row({ lead: tile({ icon: 'download', color: 'teal' }), title: 'Copia de seguridad', subtitle: lastBackup ? `Última: ${ago(lastBackup)}` : 'Aún no has hecho ninguna', chevron: true, onClick: go('/mas/copias') }),
         row({ lead: tile({ icon: 'lock', color: 'gray' }), title: 'Bloquear ahora', onClick: () => lockNow() }),
       ])),

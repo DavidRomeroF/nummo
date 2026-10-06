@@ -22,6 +22,9 @@ import { backupView } from './views/backup.js';
 import { securityView } from './views/security.js';
 import { aboutView } from './views/about.js';
 import { appearanceView } from './views/appearance.js';
+import { banksView, handleBankCallback, autoSyncBanks } from './views/banks.js';
+import { rulesView } from './views/rules.js';
+import * as bankService from './core/bank/service.js';
 import { initTheme } from './ui/theme.js';
 import * as vault from './core/vault.js';
 import * as store from './core/store.js';
@@ -49,6 +52,47 @@ router.addRoute('/mas/copias', backupView, 'mas');
 router.addRoute('/mas/seguridad', securityView, 'mas');
 router.addRoute('/mas/acerca', aboutView, 'mas');
 router.addRoute('/mas/apariencia', appearanceView, 'mas');
+router.addRoute('/mas/bancos', banksView, 'mas');
+router.addRoute('/mas/reglas', rulesView, 'mas');
+
+/**
+ * Vuelta del banco tras identificarse (…/?code=…&state=…). Se recoge antes de nada y se borra de la
+ * barra de direcciones y del historial: el código de un solo uso no debe quedarse a la vista.
+ */
+function captureBankCallback() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('state') || !(params.has('code') || params.has('error'))) return;
+  bankService.setCallback({
+    code: params.get('code')?.slice(0, 2000) ?? null,
+    state: params.get('state')?.slice(0, 200) ?? null,
+    error: params.get('error')?.slice(0, 100) ?? null,
+  });
+  history.replaceState(null, '', `${location.pathname}${location.hash}`);
+}
+captureBankCallback();
+
+/**
+ * El banco ha vuelto a una ventana sin datos de Nummo: en iPhone pasa si abre Safari en lugar de
+ * la app instalada (son almacenes distintos). Se explica cómo terminar desde la app.
+ */
+function showReturnElsewhere(callback) {
+  const params = new URLSearchParams(Object.entries(callback).filter(([, v]) => v));
+  const back = `${location.origin}${location.pathname}?${params}`;
+  const box = h('p', { class: 'code-box' }, back);
+  const copy = h('button', { type: 'button', class: 'btn primary' }, 'Copiar dirección');
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(back);
+      copy.textContent = 'Copiada';
+    } catch {
+      copy.textContent = 'Selecciónala y cópiala a mano';
+    }
+  });
+  replace(appRoot, h('div', { class: 'screen' },
+    h('div', { class: 'lead' }, h('div', { class: 'app-mark', 'aria-hidden': 'true' }, icon('building-bank')), h('h1', null, 'Termina en la app Nummo')),
+    h('p', { class: 'text' }, 'El banco te ha devuelto al navegador, pero tus datos están en la app Nummo instalada. Copia esta dirección, abre la app y en Más → Bancos pulsa «Pegar la dirección de vuelta». Tienes unos minutos antes de que caduque.'),
+    box, copy));
+}
 
 function fatal(title, text) {
   replace(appRoot, h('div', { class: 'screen' },
@@ -77,6 +121,9 @@ function enterApp() {
   mountShell(appRoot);
   runRecurring();
   requestPersistence();
+  const callback = bankService.takeCallback();
+  if (callback) handleBankCallback(callback);
+  else autoSyncBanks().catch((error) => console.error(error?.name));
 }
 
 /**
@@ -142,6 +189,7 @@ function setupLifecycle() {
     if (vault.isUnlocked()) {
       html.classList.remove('private');
       runRecurring();
+      autoSyncBanks().catch((error) => console.error(error?.name));
     }
     checkForUpdate();
   });
@@ -202,7 +250,13 @@ async function boot() {
     showWelcome();
   });
   try {
-    if ((await vault.status()) === 'new') showWelcome();
+    const status = await vault.status();
+    const pendingReturn = status === 'new' ? bankService.takeCallback() : null;
+    if (pendingReturn) {
+      showReturnElsewhere(pendingReturn);
+      return;
+    }
+    if (status === 'new') showWelcome();
     else await showLock();
   } catch (error) {
     console.error(error);

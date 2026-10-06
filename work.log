@@ -4,6 +4,49 @@
 
 ---
 
+## 2026-10-06 — Bancos: Open Banking, importación de extractos, reglas y seguridad
+
+Tipo: funcionalidad | seguridad | documentación
+
+Qué se hizo:
+- Investigación: Ruralvía (Grupo Caja Rural) expone PSD2 en el hub de Redsys solo para TPP con licencia AISP y
+  certificados eIDAS. GoCardless/Nordigen sin altas nuevas; Tink, TrueLayer, Yapily y Salt Edge con contrato.
+  Elegido Enable Banking en modo «restricted production» (gratis, solo cuentas propias vinculadas).
+- Modelo v2 (lee v1 y copias v1): Connection, Rule, Account.bank (IBAN enmascarado + hash), Account.deposit,
+  Category.parentId, Movement.source/source2, Settings.autoSync.
+- core/import/: tubería común e idempotente (huella con nº de aparición, pendientes, duplicados entre archivo y banco,
+  apuntes manuales, transferencias propias por IBAN, propuesta de transferencias sin IBAN), reglas de categorías
+  (de la persona, aprendidas e iniciales), lector .xlsx/CSV sin librerías con plantilla de Ruralvía, deshacer.
+- core/bank/: interfaz de proveedores, Enable Banking (único módulo con red), JWT RS256 con clave no extraíble,
+  sincronización con límites PSD2 (6 h, 4/día, 429, periodo), cerrojo, revocación.
+- Seguridad: contraseña alternativa al PIN y obligatoria para guardar el acceso al banco; bloque cifrado
+  «secrets» fuera de state y de las copias; CSP connect-src solo a api.enablebanking.com; release.py con red
+  restringida a un módulo, sin console.log y con escaneo de secretos y archivos personales; .gitignore ampliado.
+- Interfaz: Más → Bancos y extractos (conectar, vincular cuentas, detalle, renovar, desconectar), importar extracto,
+  Reglas, posibles transferencias, origen del movimiento y propuesta de regla al recategorizar, estado del banco en
+  Inicio, subcategorías, plazo fijo manual, pantalla de vuelta del banco en otro navegador.
+
+Por qué:
+Petición de la persona: vincular sus cuentas de Ruralvía sin que Nummo pida nunca sus claves del banco, con
+sincronización idempotente y la misma privacidad local.
+
+Archivos / recursos afectados:
+- app/js/core/model.js, store.js, vault.js, catalog.js, import/*, bank/*
+- app/js/views/banks.js, import.js, rules.js, accounts.js, categories.js, movement-form.js, home.js, more.js,
+  security.js, screens.js, shared.js, about.js; app/js/main.js, ui/components.js, ui/format.js, css/app.css, index.html
+- tests/import.test.js, files.test.js, bank.test.js, fixtures.js, run.js; tools/release.py; .gitignore
+- DOCUMENTACION-TECNICA.md (§13), GUIA-DE-USO.md, README.md, to-do.md, AUDITORIA-BANCOS.md
+
+Verificación:
+- 118/118 tests en Chromium; release.py --check sin problemas.
+- Extracto real de Ruralvía (no incluido en el repositorio): 237 movimientos leídos, 0 descartados, saldos que cuadran.
+- Recorrido en navegador (390×844, claro y oscuro): importar, recategorizar con regla, pasar a contraseña, bloquear y
+  desbloquear, y conexión completa con la API de Enable Banking simulada (ida al banco, vuelta, vinculación,
+  sincronización, transferencia propia unida, pendiente, resincronización sin duplicados).
+- Pendiente de comprobar en real: CORS de la API de Enable Banking y comportamiento en iPhone (ver to-do.md).
+
+---
+
 ## 2026-10-05 21:50 — Nuevo nombre y logo: Nummo
 
 Tipo: cambio | documentación

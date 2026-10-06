@@ -4,7 +4,10 @@ import { h, replace } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import {
   section, list, row, tile, field, textInput, amountInput, segmented, iconPicker, colorPicker, toggleRow, errorText, emptyState,
+  dateInput, readDate, notice,
 } from '../ui/components.js';
+import { shortDate } from '../ui/format.js';
+import { formatMoney } from '../core/money.js';
 import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { rerender } from '../ui/shell.js';
@@ -65,6 +68,32 @@ export function openAccountForm({ account = null } = {}) {
   const letters = textInput({ value: account?.letters ?? '', placeholder: 'BBVA', maxLength: 4, capitalize: 'characters', label: 'Iniciales' });
   const amount = amountInput({ value: balance, label: 'Saldo actual', allowNegative: true, allowZero: true, compact: true });
   const error = errorText();
+
+  // Plazo fijo / depósito: datos que la persona conoce (el banco no suele darlos por PSD2).
+  const dep = account?.deposit ?? {};
+  const depositBox = h('div', { class: 'form' });
+  const principal = amountInput({ value: dep.principal ?? null, label: 'Capital', allowZero: true, compact: true });
+  const rate = h('input', { class: 'input num', type: 'text', inputmode: 'decimal', placeholder: '2,50', value: dep.rateBp != null ? String(dep.rateBp / 100).replace('.', ',') : '', 'aria-label': 'TAE en %' });
+  const start = dateInput(dep.startDate ?? '');
+  const maturity = dateInput(dep.maturityDate ?? '');
+  start.required = false;
+  maturity.required = false;
+  depositBox.append(
+    field('Capital', principal.el, { input: principal.input }),
+    field('TAE (%)', rate, { help: 'Solo para tu referencia: Nummo no calcula intereses; los verás cuando el banco los abone.' }),
+    field('Fecha de inicio', start, { input: start }),
+    field('Vencimiento', maturity, { input: maturity, help: 'Recibirás un aviso en la lista de cuentas.' }));
+  const readDeposit = () => {
+    if (draft.type !== 'deposit') return null;
+    const bp = rate.value.trim() ? Math.round(Number(rate.value.replace(',', '.')) * 100) : null;
+    if (bp !== null && (!Number.isFinite(bp) || bp < 0 || bp > 10_000)) return { error: 'La TAE debe ser un porcentaje entre 0 y 100.' };
+    const cents = principal.input.value.trim() ? principal.read() : null;
+    if (principal.input.value.trim() && cents === null) return { error: 'Capital no válido.' };
+    return { principal: cents, rateBp: bp, startDate: readDate(start), maturityDate: readDate(maturity) };
+  };
+  const syncDeposit = () => { depositBox.hidden = draft.type !== 'deposit'; };
+  syncDeposit();
+  let followBalance = account?.bank?.followBalance ?? true;
   const makeIcons = () => iconPicker(draft.icon, draft.color, (value) => { draft.icon = value; refresh(); });
   let icons = makeIcons();
   const symbolBox = h('div');
@@ -89,6 +118,7 @@ export function openAccountForm({ account = null } = {}) {
         icons = makeIcons();
       }
       draft.type = type.key;
+      syncDeposit();
       renderSymbol();
       refresh();
     });
@@ -104,7 +134,14 @@ export function openAccountForm({ account = null } = {}) {
       error.textContent = 'Escribe las iniciales o elige un símbolo.';
       return;
     }
+    const deposit = readDeposit();
+    if (deposit?.error) {
+      error.textContent = deposit.error;
+      return;
+    }
     const data = {
+      ...(deposit ? { deposit } : {}),
+      ...(account?.bank ? { bank: { ...account.bank, followBalance } } : {}),
       name: name.value,
       type: draft.type,
       icon: draft.icon,
@@ -157,8 +194,17 @@ export function openAccountForm({ account = null } = {}) {
     focus: editing ? null : name,
     body: [
       preview,
+      account?.bank ? notice({
+        iconName: 'building-bank',
+        text: [
+          account.bank.connectionId ? `Conectada a ${store.getState().connections.find((c) => c.id === account.bank.connectionId)?.bankName ?? 'tu banco'}` : 'Cuenta importada de un extracto',
+          account.bank.ibanMasked,
+          account.bank.bankBalance !== null && account.bank.balanceAt ? `saldo del banco el ${shortDate(account.bank.balanceAt)}: ${formatMoney(account.bank.bankBalance)}` : null,
+        ].filter(Boolean).join(' · '),
+      }) : null,
       field('Nombre', name),
       field('Tipo', typeChips),
+      depositBox,
       segmented([{ value: 'icon', label: 'Símbolo' }, { value: 'letters', label: 'Iniciales' }], draft.mode, (value) => {
         draft.mode = value;
         renderSymbol();
@@ -170,6 +216,7 @@ export function openAccountForm({ account = null } = {}) {
       list([
         toggleRow('Sumar al total', draft.includeInTotal, (checked) => { draft.includeInTotal = checked; }, { help: 'Desactívalo, por ejemplo, para inversiones que no son dinero disponible.' }),
         editing ? toggleRow('Archivada', draft.archived, (checked) => { draft.archived = checked; }, { help: 'Se oculta al elegir cuenta, pero conserva su historial.' }) : null,
+        account?.bank ? toggleRow('Ajustar el saldo al del banco', followBalance, (checked) => { followBalance = checked; }, { help: 'Al sincronizar o importar, el saldo de Nummo pasa a coincidir con el del banco.' }) : null,
       ], { plain: true }),
       error,
       h('button', { type: 'button', class: 'btn primary', onClick: save }, 'Guardar'),

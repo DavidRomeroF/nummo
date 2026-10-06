@@ -688,3 +688,14 @@ html.private body { background: var(--bg) url("../icons/icon.svg") center / 72px
   .tabbar { left: 50%; right: auto; width: 520px; transform: translateX(-50%); border-radius: 18px 18px 0 0; border: 0.5px solid var(--sep); border-bottom: 0; }
   .fab { right: max(16px, calc(50% - 344px)); }
 }
+
+/* ---------------------------------------------------------------- Desplegables, bancos e importación */
+.select-wrap { position: relative; }
+.select-wrap .select { padding-right: 44px; }
+.select-wrap .icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-3); }
+.badge.pending { background: var(--warn-bg); color: var(--warn); }
+.origin { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 14px; color: var(--text-2); }
+.origin strong { color: var(--text); font-weight: 600; }
+.mono { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.code-box { margin-top: 8px; padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 14px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; }

@@ -1,5 +1,7 @@
 // Caja fuerte cifrada: guarda los bloques de datos cifrados con una clave maestra aleatoria (DEK).
-// La DEK solo se guarda cifrada con una clave derivada del PIN (KEK). Si el PIN es incorrecto,
+// La DEK solo se guarda cifrada con una clave derivada del PIN o de la contraseña (KEK).
+// El bloque 'secrets' (acceso al banco) va aparte de los datos: no entra en las copias de seguridad
+// y solo se puede guardar si la caja fuerte está protegida con contraseña, no con un PIN. Si el PIN es incorrecto,
 // AES-GCM no puede descifrar la DEK: no hace falta guardar ningún "hash" del PIN.
 // Mientras la app está desbloqueada la DEK vive solo en memoria y no es extraíble.
 // Cada escritura comprueba una marca de revisión: si otra pestaña o ventana de la app escribió
@@ -21,6 +23,11 @@ const DEK_AAD = 'nummo:dek:v1';
 const bucketAad = (key) => `nummo:bucket:v1:${key}`;
 
 export const PIN_LENGTH = 6;
+export const MIN_PASSWORD_LENGTH = 10;
+export const SECRETS_BUCKET = 'secrets';
+/** Tipo de secreto que abre la caja fuerte: 'pin' (6 cifras) o 'password' (contraseña). */
+export const SECRET_KINDS = ['pin', 'password'];
+const isStorableBucket = (name) => isBucketKey(name) || name === SECRETS_BUCKET;
 export const FREE_ATTEMPTS = 5;
 const BASE_DELAY_MS = 30_000;
 const MAX_DELAY_MS = 15 * 60_000;
@@ -46,6 +53,10 @@ let dek = null;
 let revision; // marca de la última escritura que conoce esta instancia
 let lockedUntilMono = 0; // espera por intentos con reloj monotónico: adelantar la hora no la acorta
 let kdfIterations = DEFAULT_ITERATIONS;
+let kindCache = 'pin'; // tipo de secreto de la caja fuerte abierta (para pintar Seguridad sin esperar)
+
+/** Tipo de secreto de la caja fuerte desbloqueada ('pin' | 'password'). */
+export const currentSecretKind = () => kindCache;
 
 /** Solo para tests: menos iteraciones para que la batería de pruebas sea rápida. */
 export function setIterationsForTests(n) {
@@ -63,6 +74,25 @@ const SEQUENCES = '01234567890 98765432109';
 /** PIN demasiado fácil: todos iguales (111111) o consecutivos (123456, 654321). */
 export const isWeakPin = (pin) => /^(\d)\1+$/.test(pin) || SEQUENCES.includes(pin);
 export const isUnlocked = () => dek !== null;
+
+const COMMON_PASSWORDS = ['contraseña', 'contrasena', 'password', 'qwertyuiop', '1234567890', 'abcdefghij'];
+/** Contraseña aceptable: 10+ caracteres, no todo igual, no una de las más comunes. Devuelve el motivo o ''. */
+export function passwordProblem(password) {
+  if (typeof password !== 'string') return 'Escribe una contraseña.';
+  const chars = Array.from(password);
+  if (chars.length < MIN_PASSWORD_LENGTH) return `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+  if (new Set(chars).size < 4) return 'La contraseña es demasiado repetitiva.';
+  const lower = password.toLowerCase();
+  if (COMMON_PASSWORDS.some((c) => lower.includes(c))) return 'Esa contraseña es muy fácil de adivinar.';
+  if (/^\d+$/.test(password)) return 'Usa también letras, no solo números.';
+  return '';
+}
+
+/** 'pin' o 'password' según cómo se creó o cambió la caja fuerte. */
+export async function secretKind() {
+  const meta = await idb.get('meta', META_KEY);
+  return meta?.secret === 'password' ? 'password' : 'pin';
+}
 
 /** 'new' si no hay datos todavía; 'locked' si hay una caja fuerte creada. */
 export async function status() {
@@ -86,11 +116,12 @@ export async function getLockout() {
   };
 }
 
-async function wrapDek(pin, dekRaw) {
+async function wrapDek(pin, dekRaw, secret = 'pin') {
   const salt = randomBytes(SALT_BYTES);
   const kek = await deriveKey(pin, salt, kdfIterations);
   return {
     v: 1,
+    secret,
     kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: kdfIterations, salt },
     dek: await encryptBytes(kek, dekRaw, DEK_AAD),
   };
@@ -103,6 +134,7 @@ async function openDek(pin) {
   const lockout = await getLockout();
   if (lockout.until > Date.now()) throw new LockedOutError(lockout.until);
   const kek = await deriveKey(pin, meta.kdf.salt, meta.kdf.iterations);
+  kindCache = meta.secret === 'password' ? 'password' : 'pin';
   let raw;
   try {
     raw = await decryptBytes(kek, meta.dek, DEK_AAD);
@@ -125,23 +157,24 @@ async function openDek(pin) {
 
 async function encryptBuckets(key, buckets) {
   return Promise.all([...buckets].map(async ([name, value]) => {
-    if (!isBucketKey(name)) throw new Error(`Bloque no válido: ${name}`);
+    if (!isStorableBucket(name)) throw new Error(`Bloque no válido: ${name}`);
     return [name, await encryptJSON(key, value, bucketAad(name))];
   }));
 }
 
 /** Crea la caja fuerte (sustituye cualquier dato anterior) y la deja desbloqueada. */
-export async function create(pin, buckets) {
-  if (!isValidPin(pin)) throw new Error('PIN no válido');
+export async function create(pin, buckets, kind = 'pin') {
+  if (kind === 'pin' ? !isValidPin(pin) : passwordProblem(pin)) throw new Error('Secreto no válido');
   const dekRaw = randomBytes(32);
   try {
-    const meta = await wrapDek(pin, dekRaw);
+    const meta = await wrapDek(pin, dekRaw, kind);
     const key = await importAesKey(dekRaw);
     const vault = await encryptBuckets(key, buckets);
     const token = newId();
     await idb.replaceAll({ meta: [[META_KEY, meta], [REVISION_KEY, token]], vault });
     dek = key;
     revision = token;
+    kindCache = kind;
     lockedUntilMono = 0; // caja fuerte nueva: sin intentos fallidos
   } finally {
     dekRaw.fill(0);
@@ -174,6 +207,9 @@ export async function saveBuckets(changes) {
   if (!dek) throw new Error('La caja fuerte está bloqueada');
   const puts = [...changes].filter(([, value]) => value !== null);
   const deletes = [...changes].filter(([, value]) => value === null).map(([name]) => name);
+  if (puts.some(([name]) => name === SECRETS_BUCKET) && (await secretKind()) !== 'password') {
+    throw new Error('El acceso al banco solo se guarda con la app protegida por contraseña.');
+  }
   const next = newId();
   await idb.writeChecked({ expected: revision, next, puts: await encryptBuckets(dek, puts), deletes });
   revision = next;
@@ -194,14 +230,30 @@ export async function verifyPin(pin) {
 
 /** Comprueba el PIN actual y vuelve a cifrar la DEK con el nuevo (los datos no se recifran). */
 export async function changePin(currentPin, newPin) {
-  if (!isValidPin(newPin)) throw new Error('PIN no válido');
-  const dekRaw = await openDek(currentPin);
+  return changeSecret(currentPin, newPin, 'pin');
+}
+
+/**
+ * Cambia el secreto que abre la caja fuerte (PIN ↔ contraseña). Solo se vuelve a cifrar la DEK.
+ * Volver a PIN no se permite mientras haya secretos del banco guardados.
+ */
+export async function changeSecret(current, next, kind) {
+  if (kind === 'pin' && !isValidPin(next)) throw new Error('PIN no válido');
+  if (kind === 'password' && passwordProblem(next)) throw new Error('Contraseña no válida');
+  if (!SECRET_KINDS.includes(kind)) throw new Error('Tipo de secreto no válido');
+  if (kind === 'pin' && (await idb.get('vault', SECRETS_BUCKET))) {
+    throw new Error('Desconecta el banco antes de volver a usar un PIN.');
+  }
+  const dekRaw = await openDek(current);
   try {
-    await idb.put('meta', META_KEY, await wrapDek(newPin, dekRaw));
+    await idb.put('meta', META_KEY, await wrapDek(next, dekRaw, kind));
+    kindCache = kind;
   } finally {
     dekRaw.fill(0);
   }
 }
+
+
 
 /** Borra todos los datos de este dispositivo. */
 export async function destroy() {

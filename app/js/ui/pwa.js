@@ -79,7 +79,7 @@ export function initPwa() {
   navigator.serviceWorker
     .register(policy ? policy.createScriptURL('./sw.js') : './sw.js', { scope: './' })
     .then(watch)
-    .catch((error) => console.warn('Service worker no registrado:', error));
+    .catch((error) => console.error('Service worker no registrado:', error?.name));
 }
 
 export function checkForUpdate() {

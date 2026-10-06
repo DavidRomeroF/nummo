@@ -265,3 +265,11 @@ export function stepper(value, { min = 1, max = 12, label, onChange }) {
     output,
     h('button', { type: 'button', 'aria-label': 'Más', onClick: () => set(current + 1) }, '+'));
 }
+
+/** Desplegable nativo con flecha. options: [{ value, label }]. Devuelve { el, select }. */
+export function selectInput(options, value = '', { label = null, placeholder = null } = {}) {
+  const select = h('select', { class: 'select', 'aria-label': label },
+    placeholder !== null ? h('option', { value: '' }, placeholder) : null,
+    options.map((o) => h('option', { value: o.value, selected: o.value === value }, o.label)));
+  return { el: h('div', { class: 'select-wrap' }, select, icon('chevron-down')), select };
+}

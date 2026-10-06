@@ -9,5 +9,8 @@ import './vault.test.js';
 import './store.test.js';
 import './backup.test.js';
 import './color.test.js';
+import './import.test.js';
+import './files.test.js';
+import './bank.test.js';
 
 run();

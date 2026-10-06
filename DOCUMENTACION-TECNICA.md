@@ -8,11 +8,13 @@
 - deudas («debo» / «me deben») con pagos parciales;
 - presupuestos mensuales y movimientos programados;
 - análisis con gráficas;
-- copias de seguridad cifradas y exportación CSV.
+- copias de seguridad cifradas y exportación CSV;
+- importación de extractos bancarios (Excel/CSV) y conexión con bancos por Open Banking (PSD2), con categorías automáticas, reglas y detección de transferencias entre cuentas propias (§13).
 
 Principios de diseño:
 
-- **Local-first y privada.** No hay backend: todos los datos viven en el dispositivo (IndexedDB), cifrados con AES-256-GCM. La clave se abre con un PIN de 6 dígitos.
+- **Local-first y privada.** No hay backend: todos los datos viven en el dispositivo (IndexedDB), cifrados con AES-256-GCM. La clave se abre con un PIN de 6 dígitos o, para conectar bancos, con una contraseña.
+- **Red solo para el banco.** La única conexión externa posible es la API de Enable Banking, y solo si la persona conecta un banco (§13).
 - **Sin dependencias en tiempo de ejecución.** HTML + CSS + JavaScript (módulos ES), sin frameworks, librerías ni paso de compilación.
 - **Funciona sin conexión.** Un service worker precarga la app y avisa cuando hay versión nueva.
 - **Hosting estático.** GitHub Pages publica la carpeta `app/` mediante GitHub Actions.
@@ -32,7 +34,8 @@ Principios de diseño:
 | Iconos | Tabler Icons (MIT) | v3.48.0 | 123 trazados copiados en `app/js/ui/icon-data.js` |
 | Herramientas | Python | 3.9+ | `tools/*.py` (solo biblioteca estándar) |
 | Publicación | GitHub Pages + GitHub Actions | checkout v7.0.1, configure-pages v6.0.0, upload-pages-artifact v5.0.0, deploy-pages v5.0.1 | Acciones fijadas por SHA |
-| Tests | Ejecutor propio en el navegador (`tests/`) | — | 60 tests del núcleo |
+| Open Banking | Enable Banking (API REST, JWT RS256 firmado con WebCrypto) | — | Solo desde `core/bank/enablebanking.js` |
+| Tests | Ejecutor propio en el navegador (`tests/`) | — | 118 tests del núcleo |
 
 ## 3. Arquitectura
 
@@ -117,7 +120,19 @@ nummo/
 │       │   ├── finance.js    saldos, deudas, resúmenes, presupuestos, series
 │       │   ├── recurring.js  fechas de programados
 │       │   ├── backup.js     copia cifrada y CSV
-│       │   └── color.js      contraste WCAG y tonos de acento en OKLCH
+│       │   ├── color.js      contraste WCAG y tonos de acento en OKLCH
+│       │   ├── import/       tubería común de importación (§13)
+│       │   │   ├── normalize.js  apunte bruto → apunte validado, huella, comercio, hash del IBAN
+│       │   │   ├── plan.js       duplicados, pendientes, transferencias propias (sin modificar nada)
+│       │   │   ├── rules.js      categorización por reglas (de la persona, aprendidas e iniciales)
+│       │   │   ├── files.js      lectura de .xlsx (ZIP + XML) y CSV sin librerías
+│       │   │   └── statement.js  columnas del extracto (plantilla Ruralvía y genérica)
+│       │   └── bank/         Open Banking (§13)
+│       │       ├── provider.js     interfaz común de proveedores y errores (BankError)
+│       │       ├── enablebanking.js único módulo con acceso a la red
+│       │       ├── jwt.js          clave privada no extraíble y firma RS256
+│       │       ├── sync.js         sincronización, límites PSD2 y cerrojo
+│       │       └── service.js      configurar, conectar, vincular, sincronizar, desconectar
 │       ├── ui/               infraestructura de interfaz (dom, componentes, hojas, avisos,
 │       │                     router, shell, gráficas, PWA, teclado PIN, iconos, formatos, tema)
 │       └── views/            pantallas y formularios
@@ -134,7 +149,7 @@ nummo/
 
 ## 5. Configuración y variables de entorno
 
-La app **no usa variables de entorno ni secretos**: no hay servidor, API ni claves. La única configuración es la de cada usuario y se guarda cifrada con sus datos:
+La app **no usa variables de entorno ni secretos en el código**: no hay servidor ni claves compartidas. Para Open Banking, cada persona crea su propia aplicación en Enable Banking y guarda en la app su identificador y su clave privada, cifrados en el bloque `secrets` (§13). La configuración de cada usuario se guarda cifrada con sus datos:
 
 - bloqueo automático;
 - última cuenta usada;
@@ -207,7 +222,15 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
 | **Budget** | `id, categoryId \| null (null = total del mes), amount` (mensual) |
 | **Recurring** | `id, active, frequency (weekly\|monthly\|yearly), interval (1–12), startDate, index, endDate \| null, template` |
 | **Movement** | `id, date, type (expense\|income\|transfer\|debt), amount (>0), accountId, toAccountId (transfer), categoryId (expense/income), debtId + flow (add\|pay) (debt), note, recurringId?, ts` |
-| **Settings** | `autoLockSec (0\|60\|300\|900), lastBackupAt, lastAccountId, installHintDismissed` |
+| **Settings** | `autoLockSec (0\|60\|300\|900), lastBackupAt, lastAccountId, installHintDismissed, autoSync` |
+| **Connection** (v2) | `id, provider ('enablebanking'), bankName, country, status (pending\|active\|expired\|revoked\|error), validUntil, createdAt, lastSyncAt, syncLog [{at, ok, code}] (≤ 12), lastError {code, at}` |
+| **Rule** (v2) | `id, field (text\|counterparty\|mcc), op (contains\|starts\|equals), value (sin tildes ni mayúsculas), categoryId \| toAccountId, origin (user\|learned), active` |
+| `Account.bank` (v2, opcional) | `connectionId, externalId, ibanMasked ('•••• 1234'), ibanHash (SHA-256), currency, product, bankBalance, availableBalance, balanceAt, followBalance` |
+| `Account.deposit` (v2, tipo `deposit`) | `principal, rateBp, startDate, maturityDate` |
+| `Category.parentId` (v2, opcional) | Subcategoría de un solo nivel y del mismo tipo |
+| `Movement.source` / `source2` (v2, opcionales) | Origen importado: `kind (bank\|file), ext, fp, bdate, vdate, status (booked\|pending), text, cp, cpIban (hash), bal, mcc, cat (user\|rule\|auto\|none), batch`. En una transferencia, `source` es el apunte de la cuenta de origen y `source2` el de la de destino |
+
+Versión del esquema: **2**. Los datos y copias de la versión 1 se leen sin cambios (no tenían bancos, reglas ni orígenes).
 
 `icon`, `color` y `type` son claves de listas blancas definidas en `catalog.js`, así que nunca se guardan colores ni SVG libres.
 
@@ -245,6 +268,7 @@ Todos los importes son **céntimos enteros** (máximo ±999.999.999,99 €). Las
 | `meta` | `revision` | Marca aleatoria de la última escritura. Cada guardado comprueba que sigue siendo la que esta ventana cargó; si otra ventana o pestaña escribió después, se rechaza (`ConflictError`) y la app se bloquea para recargar los datos |
 | `vault` | `core` | `{ iv, ct }`: cifrado de `{ version, settings, accounts, categories, debts, budgets, recurring }` |
 | `vault` | `mov-AAAA` | `{ iv, ct }`: cifrado de `{ movements }` de ese año |
+| `vault` | `secrets` | `{ iv, ct }`: cifrado de `{ eb: { appId, pem }, sessions: { conexión → sesión }, pending }`. Solo con caja fuerte protegida por **contraseña**. No forma parte de `state` ni de las copias |
 
 AAD de cada bloque: `nummo:bucket:v1:<clave>` (y `nummo:dek:v1` para la DEK). Impide intercambiar bloques cifrados entre sí.
 
@@ -299,10 +323,10 @@ Formato pensado para Excel en español:
 
   No contiene datos personales.
 - **Anti-iframe.** La app no arranca si `window.top !== window.self`. GitHub Pages no permite la cabecera `frame-ancestors`, así que esta comprobación la sustituye.
-- **Sin red.**
-  - Ni la app ni el service worker hacen peticiones a otros dominios.
+- **Red mínima.**
+  - La única petición externa posible es a `https://api.enablebanking.com`, desde `core/bank/enablebanking.js`, y solo si la persona conecta un banco. La CSP (`connect-src 'self' https://api.enablebanking.com`) lo impone en el navegador.
   - El service worker solo responde a GET del mismo origen y dentro de su alcance.
-  - `release.py` comprueba que no hay `fetch`, XHR ni WebSocket en la app.
+  - `release.py` falla si aparece `fetch`, XHR o WebSocket en cualquier otro archivo, si ese módulo usa otra URL o si la CSP cambia.
 - **Validación de entradas.**
   - Normalizadores por entidad con listas blancas, límites de longitud y rango y saneado de texto (sin caracteres de control ni marcas de dirección).
   - Integridad referencial y límites de cantidad.
@@ -347,7 +371,7 @@ Mediciones con 20.000 movimientos (unos 3 MB de JSON) en un Mac con Chromium; en
 ## 10. Tests
 
 - **Ejecutar.** Arranca `python3 tools/serve.py` y abre http://127.0.0.1:8080/tests/. Usan una base de datos IndexedDB aparte, `nummo-test`.
-- **Qué cubren (74 tests).**
+- **Qué cubren (118 tests).** Además de lo siguiente, `import.test.js`, `files.test.js` y `bank.test.js` cubren la importación, la lectura de archivos y Open Banking (§13).
   - Interpretación y formato de importes.
   - Fechas: bisiestos, anclaje de día y cambios de mes y año.
   - Validación del modelo en modo estricto y de reparación, integridad referencial y saneado.
@@ -397,3 +421,50 @@ Los pendientes y mejoras propuestas están en **[to-do.md](to-do.md)**. Los prin
   2. `python3 tools/release.py`;
   3. anotar en `work.log` lo hecho y en `to-do.md` lo propuesto.
 - **Commits.** Un commit por cambio coherente, con mensaje en español que explique el porqué. Rama principal: `main`, que publica automáticamente.
+
+## 13. Bancos: importación, Open Banking y sincronización
+
+### Fuentes y tubería común
+
+```
+Extracto Excel/CSV ── files.js ── statement.js ─┐
+                                                ├─► normalize.prepareItems ─► plan.planImport ─► store.applyImport
+Banco (Enable Banking) ── enablebanking.js ─────┘        (validar, huella)      (sin modificar)     (todo o nada)
+```
+
+- **Apunte bruto** (`RawTransaction`): `{ ext, bdate, vdate, amount (céntimos con signo), text, cp, cpIban, status, bal, mcc }`. Lo producen los lectores de archivos y los proveedores; desde ahí, Nummo no distingue el origen.
+- **Fecha mostrada.** La fecha valor si es anterior y está a ≤ 7 días de la contable (día real de la compra con tarjeta); si no, la contable. La deduplicación usa siempre la contable.
+- **Idempotencia** (`plan.js`). Un apunte ya importado se reconoce por: 1) identificador del banco o nº de apunte; 2) huella `FNV-1a(fecha contable | importe | concepto)` + nº de aparición ese día (dos cafés iguales son `#1` y `#2`); 3) pendiente del mismo importe a ≤ 5 días (se confirma); 4) apunte de la otra fuente (archivo ↔ banco) con la misma fecha contable e importe; 5) movimiento manual de esa cuenta, mismo importe a ≤ 3 días (se completa con el origen y conserva la nota y la categoría). `sync(); sync(); sync()` = `sync()` (probado).
+- **Pendientes.** Se guardan con `status: 'pending'` y cuentan en el saldo. Al sincronizar se confirman o, si el banco ya no los devuelve, se quitan. El saldo contable del banco se compara sin ellos, así en Nummo el saldo es «contable + pendientes».
+- **Saldo.** Con `followBalance` se ajusta el saldo inicial para que el calculado coincida con el del banco en su fecha (el resto de `finance.js` no cambia). Un extracto más antiguo que el último saldo conocido no lo modifica.
+- **Transferencias propias.** Un apunte nuevo cuyo IBAN de contrapartida (hash) es el de otra cuenta de Nummo, con importe opuesto a ≤ 3 días, se une con la otra mitad en un único `transfer` (`source` + `source2`). Sin IBAN, `findTransferCandidates` propone parejas con concepto de transferencia y la persona confirma (`store.mergeTransfer`).
+- **Deshacer.** `store.undoImport(batch)` revierte la última importación (añadidos, modificados, quitados y la cuenta).
+
+### Categorías y reglas (`rules.js`)
+
+Orden: reglas de la persona → aprendidas (de sus correcciones) → reglas iniciales por comercio, que solo se aplican si existe una categoría con ese nombre → «Otros». Las palabras se comparan sin tildes ni mayúsculas y completas (las de 5+ letras también como inicio de palabra). Cajero/reintegro = transferencia a la cuenta de efectivo. Las reglas pueden asignar una categoría o convertir en transferencia a una cuenta. Al corregir la categoría de un movimiento importado se marca `cat: 'user'` (no se vuelve a tocar) y se propone una regla aprendida. Extensión futura: `categorize(item, ctx)` es el único punto que habría que sustituir por un clasificador más listo.
+
+### Lectura de archivos (`files.js`, `statement.js`)
+
+- `.xlsx`: lectura del directorio ZIP, `DecompressionStream('deflate-raw')` (iOS 16.4+, Chrome 103+) y extracción de celdas con expresiones acotadas (sin `DOMParser` ni HTML). Hoja según `workbook.xml` y sus relaciones; cadenas compartidas y en línea; sistema de fechas 1900/1904.
+- CSV: UTF-8 o Windows-1252, separador detectado (`;` `,` tabulador `|`), comillas RFC 4180.
+- Límites: 10 MB de archivo, 40 MB descomprimidos por entrada (bombas ZIP), 50.000 filas, 60 columnas, sin ZIP64 ni `.xls` antiguo.
+- Columnas por sinónimos; plantilla exacta de **Ruralvía** (`Fecha de la operación, Fecha valor, Tipo movimiento, Importe, Saldo, Nro. Apunte`, con `Nombre` e `IBAN` encima): el nº de apunte es el identificador (`apunte:N`). Si no se reconocen, la persona asigna las columnas.
+
+### Open Banking (`core/bank/`)
+
+- **Por qué Enable Banking.** Ruralvía (Grupo Caja Rural) publica su API PSD2 en la plataforma de Redsys, pero solo para proveedores con licencia AISP del Banco de España y certificados eIDAS. GoCardless/Nordigen ya no admite altas. Tink, TrueLayer, Yapily y Salt Edge exigen contrato. Enable Banking permite, gratis, el modo *restricted production*: cada persona crea su aplicación y solo accede a las cuentas que vincula en su panel.
+- **Abstracción.** `provider.js` define la interfaz (`listBanks, startAuth, finishAuth, getSession, getBalances, getTransactions, revoke`) y `BankError` (códigos estables y mensajes sin datos). Añadir otro proveedor es escribir otro módulo con esa forma.
+- **Autenticación de la app.** JWT RS256 (`kid` = id de la aplicación, `iss` enablebanking.com, `aud` api.enablebanking.com, 1 h) firmado con WebCrypto. La clave PEM (PKCS#8 o PKCS#1) se importa como **no extraíble** y solo para firmar.
+- **Conexión.** `POST /auth` con `state` aleatorio (32 caracteres) guardado cifrado en `secrets.pending` (30 min) → redirección al banco → vuelta a la misma URL de la app con `?code&state` → `main.js` lo recoge y lo borra de la URL antes de nada (`history.replaceState`; `referrer: no-referrer`) → tras desbloquear, `POST /sessions` → la persona elige qué cuentas vincular. Si el banco vuelve a otro almacén (Safari en lugar de la app instalada en iPhone), esa ventana muestra la dirección para pegarla en la app.
+- **Sincronización** (`sync.js`): comprobar sesión → cuentas vinculadas (las nuevas se proponen, no se leen) → saldos → movimientos desde el último apunte del banco − 10 días (la primera vez, 90 días; si el banco rechaza el periodo, 60 y 30) con paginación → tubería común → registro en `syncLog` y `lastError`. Cerrojo con Web Locks (también entre pestañas). Si la app se bloquea a mitad, no se aplica nada.
+- **Límites PSD2.** Unas 4 consultas al día sin la persona presente y una sesión activa por usuario y proveedor en los bancos de Redsys. Automática al abrir la app como mucho cada 6 h y 4 veces en 24 h; manual con aviso si se supera; tras un 429 no se reintenta en 6 h. El permiso dura como mucho 180 días; se avisa 7 días antes.
+- **Desconectar.** `DELETE /sessions/{id}` (si hay red), se olvida la sesión y las cuentas quedan como manuales; opcionalmente se borran sus movimientos. «Borrar todos los datos» intenta antes revocar todas las sesiones.
+
+### Seguridad específica
+
+- El acceso al banco exige que la caja fuerte use **contraseña** (≥ 10 caracteres, no trivial): un PIN de 6 cifras se puede probar entero fuera de línea. No se puede volver a PIN con un banco guardado.
+- `secrets` va en su propio bloque cifrado, fuera de `state`: no aparece en pantalla, en el CSV ni en las copias, y restaurar una copia lo conserva.
+- IBAN: solo `•••• 1234` y un hash SHA-256 con prefijo de dominio; el de las contrapartidas, solo el hash.
+- Respuestas de la API: tipos comprobados, textos recortados y saneados, 8 MB como máximo, 25 s de espera, `credentials: 'omit'`.
+- Registros: los errores solo llevan un código (`rate_limit`, `expired`…). `release.py` prohíbe `console.log/info/debug` y busca secretos (PEM, JWT, tokens) y archivos personales (`.pem`, `.xlsx`, `.csv`, copias) en todo el repositorio.

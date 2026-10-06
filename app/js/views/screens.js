@@ -124,10 +124,68 @@ const mmss = (ms) => {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };
 
+/**
+ * Campo de contraseña con la misma interfaz que el teclado del PIN (info, error, busy…), para la
+ * caja fuerte protegida con contraseña.
+ */
+function passwordBox({ onComplete }) {
+  const input = h('input', {
+    class: 'input', type: 'password', autocomplete: 'current-password', enterkeyhint: 'go',
+    'aria-label': 'Contraseña', placeholder: 'Contraseña', autocapitalize: 'off', spellcheck: 'false',
+  });
+  const message = h('p', { class: 'pin-msg', role: 'status', 'aria-live': 'polite' });
+  const button = h('button', { type: 'button', class: 'btn primary' }, 'Desbloquear');
+  let busy = false;
+  const submit = () => {
+    if (busy || !input.value) return;
+    const value = input.value;
+    input.value = '';
+    onComplete(value);
+  };
+  button.addEventListener('click', submit);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') submit();
+  });
+  const setBusy = (value) => {
+    busy = value;
+    button.disabled = value;
+    input.disabled = value;
+  };
+  return {
+    el: h('div', { class: 'form' }, input, message, button),
+    focus: () => input.focus(),
+    reset() {
+      input.value = '';
+      setBusy(false);
+    },
+    error(text) {
+      message.textContent = text;
+      message.classList.add('error');
+      setBusy(false);
+      input.focus();
+    },
+    info(text) {
+      message.textContent = text;
+      message.classList.remove('error');
+    },
+    quiet(text) {
+      message.textContent = text;
+    },
+    setBusy,
+  };
+}
+
 /** Pantalla del PIN. `warning`: aviso a mostrar (p. ej. cambios que no se pudieron guardar). */
 export async function showLock({ warning = null } = {}) {
   let timer = null;
-  const pad = pinPad({ onComplete: tryUnlock });
+  let kind = 'pin';
+  try {
+    kind = await vault.secretKind();
+  } catch (error) {
+    console.error(error);
+  }
+  const word = kind === 'password' ? 'Contraseña' : 'PIN';
+  const pad = kind === 'password' ? passwordBox({ onComplete: tryUnlock }) : pinPad({ onComplete: tryUnlock });
   const countdown = (until) => {
     clearInterval(timer);
     pad.setBusy(true);
@@ -160,7 +218,7 @@ export async function showLock({ warning = null } = {}) {
         countdown(error.until);
       } else if (error instanceof vault.WrongPinError) {
         const left = vault.FREE_ATTEMPTS - error.failures;
-        pad.error(left > 0 && left <= 3 ? `PIN incorrecto. ${left === 1 ? 'Queda 1 intento' : `Quedan ${left} intentos`} antes de tener que esperar.` : 'PIN incorrecto.');
+        pad.error(left > 0 && left <= 3 ? `${word} incorrect${kind === 'password' ? 'a' : 'o'}. ${left === 1 ? 'Queda 1 intento' : `Quedan ${left} intentos`} antes de tener que esperar.` : `${word} incorrect${kind === 'password' ? 'a' : 'o'}.`);
         if (error.lockedUntil) countdown(error.lockedUntil);
       } else {
         console.error(error);
@@ -183,11 +241,12 @@ export async function showLock({ warning = null } = {}) {
   }
 
   screen([
-    lead(h('h1', null, 'Introduce tu PIN'), null),
+    lead(h('h1', null, kind === 'password' ? 'Escribe tu contraseña' : 'Introduce tu PIN'), null),
     warning ? notice({ iconName: 'alert-triangle', kind: 'warn', text: warning }) : null,
     pad.el,
-    h('button', { type: 'button', class: 'btn-text', onClick: forgotPin }, '¿Has olvidado el PIN?'),
+    h('button', { type: 'button', class: 'btn-text', onClick: forgotPin }, kind === 'password' ? '¿Has olvidado la contraseña?' : '¿Has olvidado el PIN?'),
   ], { onLeave: () => clearInterval(timer) });
+  pad.focus?.();
 
   try {
     const lockout = await vault.getLockout();

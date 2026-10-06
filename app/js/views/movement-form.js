@@ -12,6 +12,68 @@ import { ValidationError, LIMITS } from '../core/model.js';
 import { todayISO, addDays } from '../core/dates.js';
 import { countDue } from '../core/recurring.js';
 import { openDebtMovementForm } from './debt-forms.js';
+import { shortDate } from '../ui/format.js';
+import { formatMoney } from '../core/money.js';
+import { suggestRuleValue, itemFromMovement, categorize, sortRules } from '../core/import/rules.js';
+
+/** Datos de origen de un movimiento importado (banco o extracto), solo lectura. */
+function originBox(m) {
+  const src = m.source ?? m.source2;
+  if (!src) return null;
+  const lines = [
+    h('span', null, h('strong', null, src.kind === 'bank' ? 'Del banco' : 'De un extracto'), src.status === 'pending' ? ' · pendiente de contabilizar' : ''),
+    h('span', null, `Concepto: ${src.text}`),
+    h('span', null, `Fecha contable: ${shortDate(src.bdate)}${src.vdate && src.vdate !== src.bdate ? ` · valor: ${shortDate(src.vdate)}` : ''}`),
+    src.bal !== null ? h('span', null, `Saldo tras el movimiento: ${formatMoney(src.bal)}`) : null,
+  ];
+  return h('div', { class: 'origin' }, lines);
+}
+
+/**
+ * Tras corregir la categoría de un movimiento importado, propone recordarlo como regla
+ * («mercadona» → Restaurantes) y la aplica al resto de lo importado que no eligió la persona.
+ */
+async function offerRule(movement, categoryId) {
+  const state = store.getState();
+  const category = state.categories.find((c) => c.id === categoryId);
+  const value = suggestRuleValue(itemFromMovement(movement));
+  if (!category || !value || value.length < 2) return;
+  const ok = await confirmDialog({
+    title: '¿Recordarlo para la próxima vez?',
+    text: `Los movimientos de «${value}» irán a ${category.name}, también los ya importados que no hayas cambiado tú.`,
+    confirmLabel: 'Crear regla',
+  });
+  if (!ok || !store.isLoaded()) return;
+  try {
+    store.addRule({ field: 'counterparty', op: 'contains', value, categoryId, origin: 'learned' });
+    const s = store.getState();
+    const rules = sortRules(s.rules);
+    const changed = store.reapplyRules((m) => categorize(itemFromMovement(m), { accountId: m.accountId, categories: s.categories, accounts: s.accounts, rules }));
+    toast(changed ? `Regla creada · ${changed} ${changed === 1 ? 'movimiento actualizado' : 'movimientos actualizados'}` : 'Regla creada');
+  } catch (e) {
+    if (!(e instanceof ValidationError)) throw e;
+    toast(e.message, { kind: 'error' });
+  }
+}
+
+/**
+ * Al editar un movimiento importado, su origen debe seguir en el lado de la cuenta que lo trajo:
+ * en una transferencia, 'source' es la cuenta de origen y 'source2' la de destino.
+ */
+function originFor(movement, data) {
+  const legs = [];
+  if (movement.source) legs.push({ src: movement.source, accountId: movement.accountId });
+  if (movement.source2) legs.push({ src: movement.source2, accountId: movement.toAccountId });
+  if (!legs.length) return {};
+  const out = { source: undefined, source2: undefined };
+  for (const { src, accountId } of legs) {
+    if (data.type === 'transfer' && accountId === data.toAccountId) out.source2 = src;
+    else if (accountId === data.accountId) out.source = src;
+  }
+  // La cuenta del apunte ya no participa: el origen se conserva en el lado principal.
+  if (!out.source && !out.source2) out.source = legs[0].src;
+  return out;
+}
 
 const TYPE_OPTIONS = [
   { value: 'expense', label: 'Gasto' },
@@ -131,10 +193,17 @@ export function openMovementForm({ movement = null, preset = {} } = {}) {
       categoryId: draft.type === 'transfer' ? undefined : draft.categoryId,
       note: note.value,
     };
+    const recategorized = editing && movement.source && movement.type === data.type && data.type !== 'transfer'
+      && movement.categoryId !== data.categoryId;
+    if (editing) {
+      Object.assign(data, originFor(movement, data));
+      if (recategorized && data.source) data.source = { ...data.source, cat: 'user' };
+    }
     try {
       if (editing) {
         store.updateMovement(movement.id, data);
         toast('Cambios guardados');
+        if (recategorized) setTimeout(() => offerRule(movement, data.categoryId), 400);
       } else if (draft.repeat) {
         const { date: nextDate, ...template } = data;
         const { created } = store.addRecurring({ frequency: draft.repeat, interval: 1, nextDate, endDate: null, active: true, template });
@@ -159,6 +228,7 @@ export function openMovementForm({ movement = null, preset = {} } = {}) {
   };
 
   const body = [
+    editing ? originBox(movement) : null,
     segmented(TYPE_OPTIONS, draft.type, (type) => { draft.type = type; renderDynamic(); }, { label: 'Tipo de movimiento' }),
     amount.el,
     dynamic,

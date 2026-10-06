@@ -9,9 +9,10 @@ App web (PWA) para controlar tu dinero desde el móvil (iPhone y Android):
 - presupuestos mensuales y movimientos programados;
 - análisis con gráficas;
 - temas claro, oscuro y automático con el color que elijas;
-- copias de seguridad cifradas.
+- copias de seguridad cifradas;
+- **bancos**: importación de extractos (Excel/CSV, con plantilla para Ruralvía) y conexión por Open Banking (Enable Banking), con categorías automáticas, reglas y transferencias entre cuentas propias.
 
-**Privada por diseño:** sin servidores ni cuentas. Los datos se guardan **solo en el dispositivo**, cifrados con AES-256 y protegidos con un PIN. Funciona sin conexión y no tiene dependencias externas.
+**Privada por diseño:** sin servidores ni cuentas. Los datos se guardan **solo en el dispositivo**, cifrados con AES-256 y protegidos con un PIN o una contraseña. Funciona sin conexión y no tiene dependencias externas. La única conexión externa es la API de Enable Banking, y solo si conectas un banco.
 
 ## Documentación
 
@@ -19,6 +20,7 @@ App web (PWA) para controlar tu dinero desde el móvil (iPhone y Android):
 - **[Documentación técnica](DOCUMENTACION-TECNICA.md):** arquitectura, modelo de datos, seguridad, rendimiento, tests y despliegue.
 - **[to-do.md](to-do.md):** pendientes y mejoras propuestas.
 - **[work.log](work.log):** diario de todo lo hecho.
+- **[AUDITORIA-BANCOS.md](AUDITORIA-BANCOS.md):** auditoría de seguridad de la funcionalidad bancaria y riesgos que quedan.
 
 ## Probar en local
 

@@ -15,6 +15,7 @@ import { openMovementForm } from './movement-form.js';
 import { compareNewest, movementRow, accountRow, budgetItem } from './shared.js';
 import { showMovementsFor } from './movements.js';
 import { showStatsFor } from './stats.js';
+import { connectionSummary, syncWithFeedback } from './banks.js';
 
 const BACKUP_REMINDER_DAYS = 30;
 
@@ -44,6 +45,17 @@ function notices(state) {
         ? `Tu última copia es de ${ago(lastBackup)}.`
         : 'Aún no tienes ninguna. Si borras la app o cambias de móvil, perderías tus datos.',
       actions: [{ label: 'Hacer copia', primary: true, onClick: () => router.navigate('/mas/copias') }],
+    }));
+  }
+  for (const c of state.connections) {
+    const summary = connectionSummary(c);
+    if (summary.level !== 'danger') continue;
+    items.push(notice({
+      iconName: 'building-bank',
+      kind: 'warn',
+      title: c.bankName,
+      text: summary.text,
+      actions: [{ label: 'Revisar', primary: true, onClick: () => router.navigate('/mas/bancos') }],
     }));
   }
   if (!pwa.isStandalone && !state.settings.installHintDismissed && (pwa.isIOS || pwa.canPromptInstall)) {
@@ -92,10 +104,14 @@ export function homeView() {
   }
 
   const accounts = state.accounts.filter((a) => !a.archived);
-  body.push(section({ title: 'Cuentas', action: { label: 'Gestionar', onClick: () => router.navigate('/mas/cuentas') } },
+  const bankLines = state.connections.map((c) => `${c.bankName} · ${connectionSummary(c).text.toLowerCase()}`);
+  body.push(section({ title: 'Cuentas', action: { label: 'Gestionar', onClick: () => router.navigate('/mas/cuentas') }, caption: bankLines.join(' · ') || null },
     accounts.length
       ? list(accounts.map((a) => accountRow(a, balances.get(a.id) ?? 0, { chevron: true, onClick: () => showMovementsFor({ accountId: a.id }) })))
-      : emptyState('building-bank', 'Sin cuentas', 'Añade tu banco, tarjeta o efectivo.', { label: 'Añadir cuenta', onClick: () => router.navigate('/mas/cuentas') })));
+      : emptyState('building-bank', 'Sin cuentas', 'Añade tu banco, tarjeta o efectivo.', { label: 'Añadir cuenta', onClick: () => router.navigate('/mas/cuentas') }),
+    state.connections.some((c) => c.status === 'active')
+      ? h('button', { type: 'button', class: 'btn', onClick: () => state.connections.filter((c) => c.status === 'active').forEach((c) => syncWithFeedback(c.id)) }, icon('refresh'), 'Sincronizar ahora')
+      : null));
 
   const upcoming = state.recurring
     .filter((r) => r.active && !isFinished(r))

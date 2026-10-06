@@ -42,7 +42,35 @@
 - [ ] 🟢 [funcionalidad] Compartir datos entre personas o dispositivos (p. ej. gastos de pareja) mediante sincronización cifrada.
       Justificación: hoy cada instalación es independiente; requeriría un servidor y cuentas de usuario.
 
+### Bancos (Open Banking e importación)
+
+- [ ] 🔴 [funcionalidad] Primera conexión real con Caja Rural desde el móvil (lo hace la persona propietaria): crear la
+      aplicación en Enable Banking, vincular las cuentas en su panel, registrar la Redirect URL de GitHub Pages y conectar.
+      Justificación: comprobar en real que la API admite llamadas desde el navegador (CORS), qué cuentas devuelve
+      Caja Rural (¿ahorro, tarjetas, plazo fijo?), cuánto historial da y si el identificador de apunte es estable.
+- [ ] 🔴 [seguridad] Si la API de Enable Banking NO admite llamadas desde el navegador (CORS): intermediario mínimo
+      propio (Cloudflare Worker) que solo reenvíe a api.enablebanking.com, con la clave en el Worker y autenticación.
+      Justificación: sin eso la conexión no funciona desde una web; el diseño (provider.js) ya lo permite sin tocar el resto.
+- [ ] 🟡 [funcionalidad] Comprobar en un iPhone real la vuelta del banco a la app instalada (o a Safari) y el aviso con la
+      dirección para pegar. Justificación: iOS trata distinto las PWA instaladas y no se puede reproducir en el ordenador.
+- [ ] 🟡 [funcionalidad] Análisis por subcategoría y por comercio (los datos ya están: `parentId`, `source.cp`).
+      Justificación: estadísticas por comercio y agrupación de subcategorías en las gráficas.
+- [ ] 🟡 [funcionalidad] Detección de suscripciones y pagos recurrentes a partir de lo importado, con propuesta de crear
+      el programado. Justificación: sale casi gratis de los datos del banco.
+- [ ] 🟢 [funcionalidad] Alertas de presupuesto al importar (aviso cuando una categoría pasa del 80 %).
+- [ ] 🟢 [funcionalidad] Sincronización entre dispositivos con cifrado de extremo a extremo (los bloques cifrados se
+      suben tal cual a un almacén que no tiene la clave; emparejado por QR). Justificación: PC y móvil con los mismos datos.
+      Ver la propuesta de arquitectura (opción E). El banco seguiría conectado solo en un dispositivo.
+- [ ] 🟢 [funcionalidad] Más plantillas de extractos (BBVA, Santander, CaixaBank…) y Norma 43.
+- [ ] 🟢 [seguridad] Desbloqueo con passkey (WebAuthn PRF) como alternativa a la contraseña.
+
 ## Completados
+
+- [x] 2026-10-06 — Bancos: modelo v2 con migración, tubería de importación idempotente (huella, pendientes, duplicados
+      entre fuentes, transferencias propias), lector de Excel/CSV con plantilla de Ruralvía, reglas de categorías que
+      aprenden, Open Banking con Enable Banking (JWT con clave no extraíble, conexión, vinculación, sincronización con
+      límites PSD2, desconexión y revocación), contraseña obligatoria para guardar el acceso al banco, secretos fuera de
+      las copias, CSP y release.py endurecidos, subcategorías, plazos fijos manuales. 118 tests.
 
 - [x] 2026-10-05 — Nuevo nombre y logo: Nummo (iconos vectoriales a partir del logo; nombre en app, archivos y documentación).
 

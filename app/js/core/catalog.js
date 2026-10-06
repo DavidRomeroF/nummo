@@ -16,7 +16,7 @@ export const PICKER_ICONS = [
   'truck', 'first-aid-kit', 'pill', 'dental', 'stethoscope', 'barbell', 'ball-football', 'swimming',
   'paw', 'baby-carriage', 'heart', 'users', 'user', 'gift', 'confetti', 'umbrella', 'shield', 'receipt',
   'file-invoice', 'building-bank', 'credit-card', 'cash', 'cash-banknote', 'wallet', 'pig-money', 'coin',
-  'coins', 'chart-line', 'trending-up', 'briefcase', 'receipt-refund', 'report-money', 'currency-euro',
+  'coins', 'chart-line', 'trending-up', 'lock', 'briefcase', 'receipt-refund', 'report-money', 'currency-euro',
   'tag', 'star', 'dots',
 ];
 
@@ -35,7 +35,7 @@ export const ICON_LABELS = {
   heart: 'Corazón', users: 'Familia', user: 'Persona', gift: 'Regalo', confetti: 'Fiesta', umbrella: 'Paraguas',
   shield: 'Seguro', receipt: 'Recibo', 'file-invoice': 'Factura', 'building-bank': 'Banco', 'credit-card': 'Tarjeta',
   cash: 'Efectivo', 'cash-banknote': 'Billete', wallet: 'Cartera', 'pig-money': 'Hucha', coin: 'Moneda', coins: 'Monedas',
-  'chart-line': 'Inversión', 'trending-up': 'Rendimiento', briefcase: 'Trabajo', 'receipt-refund': 'Reembolso',
+  'chart-line': 'Inversión', 'trending-up': 'Rendimiento', lock: 'Candado', briefcase: 'Trabajo', 'receipt-refund': 'Reembolso',
   'report-money': 'Informe', 'currency-euro': 'Euro', tag: 'Etiqueta', star: 'Estrella', dots: 'Otros',
 };
 
@@ -50,6 +50,7 @@ export const ACCOUNT_TYPES = [
   { key: 'cash', label: 'Efectivo', icon: 'cash' },
   { key: 'savings', label: 'Ahorro', icon: 'pig-money' },
   { key: 'investment', label: 'Inversión', icon: 'chart-line' },
+  { key: 'deposit', label: 'Plazo fijo / depósito', icon: 'lock' },
   { key: 'other', label: 'Otra', icon: 'wallet' },
 ];
 export const ACCOUNT_TYPE_KEYS = ACCOUNT_TYPES.map((t) => t.key);

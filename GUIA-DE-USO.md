@@ -189,10 +189,64 @@ En **Más → Apariencia**:
 
 El ajuste se guarda en el propio móvil y se aplica nada más abrir la app, también en la pantalla del PIN.
 
+## Bancos y extractos
+
+En **Más → Bancos y extractos** puedes traer los movimientos de tu banco sin apuntarlos a mano, de dos formas. En las dos, **nada se duplica** aunque repitas la importación, y la categoría se pone sola.
+
+### Importar un extracto (Excel o CSV)
+
+Funciona con cualquier banco y no necesita conexión.
+
+1. En la web o la app de tu banco, descarga los movimientos de la cuenta en **Excel** o **CSV** (en la consulta de movimientos, opción de descargar o exportar). El Excel de Ruralvía se reconoce directamente.
+2. En Nummo, pulsa **Importar extracto** y elige el archivo. Se lee en el móvil: no se envía a ningún sitio.
+3. Elige la cuenta (la primera vez, **Crear cuenta nueva**). Las siguientes veces Nummo la reconoce sola por el IBAN.
+4. Revisa el resumen (nuevos, ya importados, transferencias) y pulsa **Importar**. Si te equivocas, pulsa **Deshacer** en el aviso.
+
+Con **Ajustar el saldo al del banco** activado, el saldo de la cuenta en Nummo pasa a coincidir con el del extracto.
+
+### Conectar el banco (Open Banking)
+
+Los movimientos llegan solos, a través de **Enable Banking**, un proveedor de Open Banking autorizado. Nummo nunca ve tu usuario ni tu contraseña del banco: te identificas en la web o app del banco y das permiso de **solo lectura**.
+
+Antes, una sola vez:
+
+1. **Protege Nummo con contraseña**: Más → Seguridad → *Usar contraseña en vez de PIN*. El acceso al banco solo se guarda con contraseña.
+2. **Crea tu aplicación gratuita en Enable Banking** (los pasos salen en la propia app al pulsar *Conectar un banco*): regístrate, crea una aplicación de producción, añade la dirección de Nummo como *Redirect URL*, **vincula tus cuentas** en su panel y guarda el archivo `.pem`.
+3. En Nummo, escribe el identificador de la aplicación y elige el archivo `.pem`.
+
+Después:
+
+1. Pulsa **Conectar un banco** y elige el tuyo (por ejemplo, *Caja Rural*).
+2. Identifícate en el banco y acepta el permiso.
+3. De vuelta en Nummo, escribe tu contraseña y elige qué cuentas vincular y con qué nombre («Cuenta principal», «Ahorros»…).
+
+**Cuándo se actualiza.** Al abrir la app, como mucho **cada 6 horas** (los bancos permiten unas **4 consultas al día**). También puedes pulsar **Sincronizar ahora**. Con la app cerrada no se actualiza: es una app web.
+
+**El permiso caduca** (normalmente a los 180 días). Nummo te avisa unos días antes: pulsa el banco → *Renovar permiso*.
+
+**Desconectar.** Pulsa el banco → *Desconectar banco*. Se retira el permiso y decides si conservar o borrar sus movimientos.
+
+**Si en el iPhone el banco te devuelve a Safari** en lugar de a la app, Safari te mostrará una dirección: cópiala, abre Nummo y en Bancos pulsa *Pegar la dirección de vuelta del banco*.
+
+### Categorías automáticas y reglas
+
+- Nummo reconoce comercios habituales: Mercadona → Supermercado, Repsol → Gasolina, Netflix → Suscripciones…
+- Si cambias la categoría de un movimiento importado, te propone **recordarlo**: los siguientes de ese comercio irán a esa categoría.
+- En **Bancos → Reglas de categorías** puedes crear y editar reglas («si el comercio contiene *x* → categoría *y*»).
+- Sacar dinero del **cajero** se apunta como transferencia a tu cuenta de Efectivo, no como gasto.
+
+### Transferencias entre tus cuentas
+
+Si pasas 500 € de tu cuenta corriente a la de ahorro, Nummo lo une en **una sola transferencia**: no cuenta como gasto ni como ingreso. Lo hace solo cuando el banco da el IBAN de la otra cuenta. Si no, te lo propone en **Bancos → Posibles transferencias entre tus cuentas**.
+
+### Plazos fijos
+
+Los bancos no suelen dar los plazos fijos por Open Banking. Créalos como cuenta de tipo **Plazo fijo / depósito** con su capital, TAE y vencimiento. Los intereses aparecerán cuando el banco los abone en tu cuenta.
+
 ## Preguntas frecuentes
 
 **¿Mis datos se suben a internet?**
-No. Se guardan cifrados solo en tu móvil. La web desde la que se descarga la app nunca los recibe.
+No. Se guardan cifrados solo en tu móvil. La web desde la que se descarga la app nunca los recibe. Si conectas un banco, la app solo habla con Enable Banking para **leer** tus movimientos; no los envía a nadie más.
 
 **¿Qué hago si olvido el PIN?**
 Nadie puede recuperarlo, ni siquiera quien hizo la app. En la pantalla del PIN pulsa «¿Has olvidado el PIN?»: podrás borrar los datos del móvil y restaurar tu última copia de seguridad.
@@ -204,7 +258,7 @@ Es una protección: tras 5 intentos fallidos hay que esperar, cada vez un poco m
 Haz una copia de seguridad en el móvil antiguo, instala la app en el nuevo y elige «Restaurar una copia de seguridad».
 
 **¿Puedo usarla en dos móviles a la vez?**
-Sí, pero cada uno tiene sus propios datos: no se sincronizan.
+Sí, pero cada uno tiene sus propios datos: no se sincronizan. Conecta el banco solo en uno de ellos: el banco solo admite un permiso activo a la vez, y conectar en el segundo anula el del primero.
 
 **¿Funciona sin internet?**
 Sí, una vez instalada.

@@ -34,5 +34,7 @@ export function sampleState() {
       { id: 'mov00007', date: '2026-10-06', type: 'debt', amount: 1500, debtId: 'debtOwedX', flow: 'pay', accountId: null, note: '', ts: 7 },
       { id: 'mov00008', date: '2026-10-07', type: 'expense', amount: 2000, accountId: 'accountCCC', categoryId: 'catFunXXX', note: '', ts: 8 },
     ],
+    connections: [],
+    rules: [],
   };
 }

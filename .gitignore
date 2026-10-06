@@ -13,4 +13,12 @@ __pycache__/
 *.pem
 *.key
 dinero-copia-*.json
+nummo-copia-*.json
 *.csv
+*.xlsx
+*.xls
+*.p12
+*.pfx
+# Extractos del banco descargados para probar la importación
+extractos/
+movimientos*

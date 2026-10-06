@@ -8,7 +8,7 @@ import { todayISO } from './dates.js';
 import {
   CORE_BUCKET, LIMITS, ValidationError, allBucketKeys, buildBucket, mergeBuckets, movementBucket, isBucketKey,
   normalizeAccount, normalizeBudget, normalizeCategory, normalizeData, normalizeDebt,
-  normalizeMovement, normalizeRecurring, normalizeSettings,
+  normalizeMovement, normalizeRecurring, normalizeSettings, normalizeConnection, normalizeRule,
 } from './model.js';
 import { computeBalances, createDerived } from './finance.js';
 import { dueOccurrences, planRecurringUpdate } from './recurring.js';
@@ -21,8 +21,13 @@ const dirty = new Set();
 let saving = null;
 let saveErrorHandler = () => {};
 let generation = 0; // cambia al descargar los datos (bloqueo): invalida operaciones en curso
+// Secretos del banco (clave de la app de Open Banking, sesiones). Van en su propio bloque cifrado,
+// fuera de `state`: no se muestran, no se exportan y no entran en las copias de seguridad.
+let secrets = null;
 
 export const getState = () => state;
+/** Cambia en cada bloqueo: una operación lenta (sincronizar) comprueba que sigue en la misma sesión. */
+export const sessionGeneration = () => generation;
 export const isLoaded = () => state !== null;
 
 export function subscribe(listener) {
@@ -51,13 +56,31 @@ export function setState(data) {
 
 export function unload() {
   generation += 1;
+  lastImport = null;
+  secrets = null;
   setState(null);
+}
+
+/** Copia de los secretos del banco (o null). Solo para core/bank/. */
+export const getSecrets = () => (secrets ? structuredClone(secrets) : null);
+
+/** Guarda los secretos del banco cifrados (null los borra). Exige caja fuerte con contraseña. */
+export async function setSecrets(value) {
+  requireState();
+  if (value !== null && (await vault.secretKind()) !== 'password') {
+    throw new ValidationError('Para conectar un banco, protege Nummo con una contraseña (Más → Seguridad).');
+  }
+  secrets = value === null ? null : structuredClone(value);
+  dirty.add(vault.SECRETS_BUCKET);
+  await save(); // misma cola que el resto de escrituras: nunca se solapan
 }
 
 /** Carga los bloques descifrados. Devuelve cuántos elementos dañados se descartaron. */
 export function loadFromBuckets(buckets) {
   const { data, dropped } = normalizeData(mergeBuckets(buckets), { strict: false });
   setState(data);
+  const stored = buckets.get(vault.SECRETS_BUCKET);
+  secrets = stored && typeof stored === 'object' ? stored : null;
   if (dropped > 0) {
     // Reescribe lo reparado y borra los bloques que se quedaron vacíos (si no, se repetiría).
     for (const key of [...allBucketKeys(state), ...buckets.keys()]) if (isBucketKey(key)) dirty.add(key);
@@ -84,7 +107,7 @@ export function save() {
         while (dirty.size > 0 && state) {
           const keys = [...dirty];
           dirty.clear();
-          const changes = new Map(keys.map((key) => [key, bucketOrNull(key)]));
+          const changes = new Map(keys.map((key) => [key, key === vault.SECRETS_BUCKET ? secrets : bucketOrNull(key)]));
           try {
             await vault.saveBuckets(changes);
           } catch (error) {
@@ -269,6 +292,7 @@ export function deleteAccount(id) {
     return r.template.accountId !== id && r.template.toAccountId !== id;
   });
   s.accounts = s.accounts.filter((a) => a.id !== id);
+  s.rules = s.rules.filter((r) => r.toAccountId !== id);
   reindex(s.accounts);
   if (s.settings.lastAccountId === id) s.settings.lastAccountId = null;
   commit(...keys);
@@ -278,10 +302,23 @@ export function deleteAccount(id) {
 
 const activeOfKind = (s, kind) => s.categories.filter((c) => c.kind === kind && !c.archived);
 
+/** Subcategorías: un solo nivel, mismo tipo y sin hijos propios. */
+function checkParent(s, category) {
+  if (!category.parentId) return category;
+  const parent = byId(s.categories, category.parentId);
+  if (!parent || parent.kind !== category.kind || parent.parentId || parent.id === category.id) {
+    throw new ValidationError('Elige una categoría principal del mismo tipo.');
+  }
+  if (s.categories.some((c) => c.parentId === category.id)) {
+    throw new ValidationError('Una categoría con subcategorías no puede ser subcategoría.');
+  }
+  return category;
+}
+
 export function addCategory(input) {
   const s = requireState();
   ensureRoom(s.categories, LIMITS.categories, `Puedes tener como máximo ${LIMITS.categories} categorías.`);
-  const category = normalizeCategory({ ...input, id: newId(), archived: false, order: s.categories.length });
+  const category = checkParent(s, normalizeCategory({ ...input, id: newId(), archived: false, order: s.categories.length }));
   s.categories.push(category);
   commit(CORE_BUCKET);
   return category;
@@ -290,7 +327,7 @@ export function addCategory(input) {
 export function updateCategory(id, input) {
   const s = requireState();
   const current = mustFind(s.categories, id, 'La categoría');
-  const next = normalizeCategory({ ...current, ...input, id, kind: current.kind, order: current.order });
+  const next = checkParent(s, normalizeCategory({ ...current, ...input, id, kind: current.kind, order: current.order }));
   if (next.archived && !current.archived && activeOfKind(s, current.kind).length === 1) {
     throw new ValidationError('Debe quedar al menos una categoría activa de este tipo.');
   }
@@ -340,7 +377,13 @@ export function deleteCategory(id, replacementId = null) {
   }
   for (const r of s.recurring) if (r.template.categoryId === id) r.template.categoryId = replacement.id;
   s.budgets = s.budgets.filter((b) => b.categoryId !== id);
-  s.categories = s.categories.filter((c) => c.id !== id);
+  // Las reglas pasan a la categoría de destino (o se quitan) y las subcategorías suben de nivel.
+  s.rules = s.rules.flatMap((r) => (r.categoryId !== id ? [r] : replacement ? [{ ...r, categoryId: replacement.id }] : []));
+  s.categories = s.categories.filter((c) => c.id !== id).map((c) => {
+    if (c.parentId !== id) return c;
+    const { parentId, ...rest } = c;
+    return rest;
+  });
   reindex(s.categories);
   commit(...keys);
 }
@@ -528,6 +571,257 @@ export function deleteRecurring(id) {
   commit(...keys);
 }
 
+// --- Importación (banco o archivo) ------------------------------------------------------------
+
+let lastImport = null; // para «Deshacer» justo después de importar (solo en memoria)
+
+/**
+ * Aplica un plan de import/plan.js de una sola vez: si algo no valida, no cambia nada.
+ * opts: { accountId, batch, bank?: datos de banco a fusionar en la cuenta,
+ *         balance?: { amount, date } saldo del banco, followBalance?: ajustar el saldo de la cuenta }.
+ * Devuelve { batch, stats }.
+ */
+export function applyImport(plan, { accountId, bank = null, balance = null, followBalance = true, batch = null, excludePending = false } = {}) {
+  const s = requireState();
+  const account = mustFind(s.accounts, accountId, 'La cuenta');
+  if (s.movements.length + plan.add.length - plan.remove.length > LIMITS.movements) {
+    throw new ValidationError('Has alcanzado el máximo de movimientos.');
+  }
+  const removeIds = new Set(plan.remove.map((m) => m.id));
+  const replaced = new Map(plan.update.map((u) => [u.before.id, u.after]));
+  const addIds = new Set(plan.add.map((m) => m.id));
+  const keys = new Set([CORE_BUCKET]);
+  const next = [];
+  // Validación completa antes de tocar el estado (todo o nada).
+  for (const m of s.movements) {
+    if (removeIds.has(m.id)) {
+      keys.add(movementBucket(m.date));
+      continue;
+    }
+    const after = replaced.get(m.id);
+    if (after) {
+      const checked = checkRefs(normalizeMovement(after));
+      keys.add(movementBucket(m.date));
+      keys.add(movementBucket(checked.date));
+      next.push(checked);
+    } else {
+      next.push(m);
+    }
+  }
+  const existing = new Set(next.map((m) => m.id));
+  for (const m of plan.add) {
+    if (existing.has(m.id)) throw new ValidationError('Movimiento repetido en la importación.');
+    const checked = checkRefs(normalizeMovement(m));
+    existing.add(checked.id);
+    keys.add(movementBucket(checked.date));
+    next.push(checked);
+  }
+  let nextAccount = account;
+  if (bank) nextAccount = normalizeAccount({ ...account, bank: { ...(account.bank ?? {}), ...bank } });
+  const follow = followBalance && (nextAccount.bank?.followBalance ?? true);
+  if (balance && follow && !(nextAccount.bank?.balanceAt && nextAccount.bank.balanceAt > balance.date)) {
+    // El saldo de la cuenta pasa a coincidir con el del banco en esa fecha (se ajusta el inicial).
+    // El saldo contable del banco no incluye lo pendiente: con excludePending se compara sin ello,
+    // así en Nummo el saldo queda como «contable + pendientes» (lo que de verdad se puede gastar).
+    const isPendingHere = (m) => (m.accountId === accountId && m.source?.status === 'pending')
+      || (m.toAccountId === accountId && m.source2?.status === 'pending');
+    const tentative = {
+      ...s,
+      movements: excludePending ? next.filter((m) => !isPendingHere(m)) : next,
+      accounts: s.accounts.map((a) => (a.id === accountId ? nextAccount : a)),
+    };
+    const computed = computeBalances(tentative, balance.date).get(accountId) ?? 0;
+    nextAccount = normalizeAccount({
+      ...nextAccount,
+      initial: nextAccount.initial + (balance.amount - computed),
+      bank: { ...(nextAccount.bank ?? {}), bankBalance: balance.amount, balanceAt: balance.date },
+    });
+  }
+  lastImport = {
+    batch,
+    accountId,
+    prevAccount: account,
+    added: [...addIds],
+    updated: plan.update.map((u) => u.before),
+    removed: plan.remove,
+  };
+  s.movements = next;
+  s.accounts = s.accounts.map((a) => (a.id === accountId ? nextAccount : a));
+  commit(...keys);
+  return { batch, stats: plan.stats };
+}
+
+/** ¿Se puede deshacer esta importación? (solo la última y mientras la app sigue abierta) */
+export const canUndoImport = (batch) => lastImport !== null && lastImport.batch === batch;
+
+/** Deshace la última importación: quita lo añadido y devuelve lo cambiado a como estaba. */
+export function undoImport(batch) {
+  const s = requireState();
+  if (!canUndoImport(batch)) return false;
+  const added = new Set(lastImport.added);
+  const restore = new Map(lastImport.updated.map((m) => [m.id, m]));
+  const keys = new Set([CORE_BUCKET]);
+  const next = [];
+  for (const m of s.movements) {
+    if (added.has(m.id)) {
+      keys.add(movementBucket(m.date));
+      continue;
+    }
+    const before = restore.get(m.id);
+    if (before) {
+      keys.add(movementBucket(m.date));
+      keys.add(movementBucket(before.date));
+      next.push(before);
+    } else {
+      next.push(m);
+    }
+  }
+  for (const m of lastImport.removed) {
+    keys.add(movementBucket(m.date));
+    next.push(m);
+  }
+  const { accountId, prevAccount } = lastImport;
+  s.movements = next;
+  s.accounts = s.accounts.map((a) => (a.id === accountId ? prevAccount : a));
+  lastImport = null;
+  commit(...keys);
+  return true;
+}
+
+/** Datos de banco de una cuenta (IBAN enmascarado y su hash, conexión…). null los quita. */
+export function setAccountBank(id, bank) {
+  const s = requireState();
+  const current = mustFind(s.accounts, id, 'La cuenta');
+  const { bank: _old, ...rest } = current;
+  const next = bank === null ? normalizeAccount(rest) : normalizeAccount({ ...current, bank: { ...(current.bank ?? {}), ...bank } });
+  s.accounts[s.accounts.indexOf(current)] = next;
+  commit(CORE_BUCKET);
+  return next;
+}
+
+/** Une un gasto y un ingreso de dos cuentas propias en una sola transferencia. */
+export function mergeTransfer(expenseId, incomeId) {
+  const s = requireState();
+  const e = mustFind(s.movements, expenseId, 'El movimiento');
+  const i = mustFind(s.movements, incomeId, 'El movimiento');
+  if (e.type !== 'expense' || i.type !== 'income' || e.amount !== i.amount || e.accountId === i.accountId) {
+    throw new ValidationError('Estos movimientos no forman una transferencia.');
+  }
+  const merged = checkRefs(normalizeMovement({
+    id: e.id, date: e.date, type: 'transfer', amount: e.amount, accountId: e.accountId, toAccountId: i.accountId,
+    note: e.note || i.note, ts: e.ts, source: e.source, source2: i.source,
+  }));
+  s.movements = s.movements.filter((m) => m.id !== i.id).map((m) => (m.id === e.id ? merged : m));
+  commit(movementBucket(e.date), movementBucket(i.date));
+  return merged;
+}
+
+/**
+ * Vuelve a aplicar las reglas a los movimientos importados cuya categoría no eligió la persona.
+ * decide(m) devuelve el resultado de import/rules.js categorize(). Devuelve cuántos cambian.
+ */
+export function reapplyRules(decide) {
+  const s = requireState();
+  const keys = new Set();
+  let changed = 0;
+  s.movements = s.movements.map((m) => {
+    if ((m.type !== 'expense' && m.type !== 'income') || !m.source || m.source.cat === 'user') return m;
+    const decision = decide(m);
+    if (!decision || decision.type !== m.type || !decision.categoryId || decision.categoryId === m.categoryId) return m;
+    changed += 1;
+    keys.add(movementBucket(m.date));
+    return { ...m, categoryId: decision.categoryId, source: { ...m.source, cat: decision.cat } };
+  });
+  if (changed) commit(...keys);
+  return changed;
+}
+
+// --- Reglas de categorización -----------------------------------------------------------------
+
+function checkRuleRefs(rule) {
+  const s = state;
+  if (rule.categoryId && !byId(s.categories, rule.categoryId)) throw new ValidationError('Elige una categoría.');
+  if (rule.toAccountId && !byId(s.accounts, rule.toAccountId)) throw new ValidationError('Elige una cuenta.');
+  return rule;
+}
+
+/** Crea una regla; si ya hay una igual (mismo campo, condición y texto), la sustituye. */
+export function addRule(input) {
+  const s = requireState();
+  const rule = checkRuleRefs(normalizeRule({ ...input, id: newId() }));
+  const same = s.rules.find((r) => r.field === rule.field && r.op === rule.op && r.value === rule.value);
+  if (same) {
+    const replaced = { ...rule, id: same.id };
+    s.rules[s.rules.indexOf(same)] = replaced;
+    commit(CORE_BUCKET);
+    return replaced;
+  }
+  ensureRoom(s.rules, LIMITS.rules, 'Has alcanzado el máximo de reglas.');
+  s.rules.push(rule);
+  commit(CORE_BUCKET);
+  return rule;
+}
+
+export function updateRule(id, input) {
+  const s = requireState();
+  const current = mustFind(s.rules, id, 'La regla');
+  const merged = { ...current, ...input, id };
+  if (input.categoryId) delete merged.toAccountId;
+  if (input.toAccountId) delete merged.categoryId;
+  const next = checkRuleRefs(normalizeRule(merged));
+  s.rules[s.rules.indexOf(current)] = next;
+  commit(CORE_BUCKET);
+  return next;
+}
+
+export function deleteRule(id) {
+  const s = requireState();
+  mustFind(s.rules, id, 'La regla');
+  s.rules = s.rules.filter((r) => r.id !== id);
+  commit(CORE_BUCKET);
+}
+
+// --- Conexiones bancarias ---------------------------------------------------------------------
+
+export function addConnection(input) {
+  const s = requireState();
+  ensureRoom(s.connections, LIMITS.connections, 'Has alcanzado el máximo de bancos conectados.');
+  const connection = normalizeConnection({ createdAt: Date.now(), ...input, id: input.id ?? newId() });
+  s.connections.push(connection);
+  commit(CORE_BUCKET);
+  return connection;
+}
+
+export function updateConnection(id, patch) {
+  const s = requireState();
+  const current = mustFind(s.connections, id, 'El banco');
+  const next = normalizeConnection({ ...current, ...patch, id });
+  s.connections[s.connections.indexOf(current)] = next;
+  commit(CORE_BUCKET);
+  return next;
+}
+
+/** Quita un banco. Sus cuentas quedan como cuentas manuales; opcionalmente se borran sus apuntes. */
+export function removeConnection(id, { deleteMovements = false } = {}) {
+  const s = requireState();
+  mustFind(s.connections, id, 'El banco');
+  const keys = new Set([CORE_BUCKET]);
+  const linked = new Set(s.accounts.filter((a) => a.bank?.connectionId === id).map((a) => a.id));
+  s.accounts = s.accounts.map((a) => (linked.has(a.id)
+    ? normalizeAccount({ ...a, bank: { ...a.bank, connectionId: null, externalId: null } })
+    : a));
+  if (deleteMovements) {
+    s.movements = s.movements.filter((m) => {
+      const fromBank = (m.source?.kind === 'bank' && linked.has(m.accountId))
+        || (m.source2?.kind === 'bank' && linked.has(m.toAccountId));
+      if (fromBank) keys.add(movementBucket(m.date));
+      return !fromBank;
+    });
+  }
+  s.connections = s.connections.filter((c) => c.id !== id);
+  commit(...keys);
+}
+
 // --- Ajustes y restauración -------------------------------------------------------------------
 
 export function updateSettings(patch) {
@@ -544,7 +838,9 @@ export async function replaceAll(data) {
   const session = generation;
   setState(data);
   try {
-    await vault.replaceBuckets(allBuckets(data)); // borra y escribe todo en una sola transacción
+    const buckets = allBuckets(data);
+    if (secrets) buckets.set(vault.SECRETS_BUCKET, secrets); // el acceso al banco no viene en la copia
+    await vault.replaceBuckets(buckets); // borra y escribe todo en una sola transacción
   } catch (error) {
     if (session === generation) { // si se bloqueó mientras tanto, no se recarga nada
       setState(previous);

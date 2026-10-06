@@ -48,6 +48,15 @@ export function ago(timestampMs, now = Date.now()) {
   return months < 18 ? `hace ${months} meses` : `hace ${Math.round(days / 365)} años`;
 }
 
+/** "hace un momento", "hace 5 min", "hace 3 h"; si es más antiguo, como ago(). */
+export function agoShort(timestampMs, now = Date.now()) {
+  const minutes = Math.floor((now - timestampMs) / 60_000);
+  if (minutes < 1) return 'hace un momento';
+  if (minutes < 60) return `hace ${minutes} min`;
+  if (minutes < 24 * 60) return `hace ${Math.floor(minutes / 60)} h`;
+  return ago(timestampMs, now);
+}
+
 /** Texto de vencimiento de una deuda: { text, level } */
 export function dueText(dueDate, today = todayISO()) {
   if (!dueDate) return null;
@@ -90,7 +99,7 @@ export function describeMovement(m, { accounts, categories, debts }) {
     const to = accounts.get(m.toAccountId);
     return {
       title: note || 'Transferencia',
-      subtitle: `${account?.name ?? '—'} → ${to?.name ?? '—'}`,
+      subtitle: [(m.source?.status === 'pending' || m.source2?.status === 'pending') ? 'Pendiente' : null, `${account?.name ?? '—'} → ${to?.name ?? '—'}`].filter(Boolean).join(' · '),
       icon: 'arrows-exchange',
       tone: 'graphite',
       amount: formatMoney(m.amount),
@@ -111,9 +120,10 @@ export function describeMovement(m, { accounts, categories, debts }) {
     };
   }
   const category = categories.get(m.categoryId);
+  const pending = m.source?.status === 'pending' ? 'Pendiente' : null;
   return {
     title: category?.name ?? 'Sin categoría',
-    subtitle: [note, account?.name].filter(Boolean).join(' · '),
+    subtitle: [pending, note, account?.name].filter(Boolean).join(' · '),
     icon: category?.icon ?? 'tag',
     tone: category?.color ?? 'gray',
     amount: formatSigned(m.type === 'expense' ? -m.amount : m.amount),

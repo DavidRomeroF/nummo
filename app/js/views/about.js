@@ -4,7 +4,7 @@ import { h } from '../ui/dom.js';
 import { section } from '../ui/components.js';
 import { pwa } from '../ui/pwa.js';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 function storageInfo() {
   const text = h('span', null, 'Calculando…');
@@ -31,6 +31,7 @@ export function aboutView() {
           h('img', { class: 'app-logo', src: 'icons/icon.svg', alt: '' }))),
       section({ title: 'Privacidad' }, h('div', { class: 'card' },
         h('p', null, 'Nummo no tiene servidores, no usa cookies ni analítica y no envía tus datos a ningún sitio. Todo se guarda cifrado solo en este dispositivo.'),
+        h('p', null, 'Si conectas un banco, la app habla directamente con Enable Banking (proveedor de Open Banking autorizado) para leer tus cuentas y movimientos, y con nadie más. Tus movimientos no se envían a ninguna IA ni a terceros.'),
         h('p', { class: 'muted' }, 'La web desde la que se descarga la app (GitHub Pages) puede registrar visitas técnicas, como cualquier web, pero nunca recibe tus datos.'))),
       section({ title: 'Almacenamiento' }, h('div', { class: 'card' }, storageInfo())),
       section({ title: 'Instalar en el móvil' }, h('div', { class: 'card' },

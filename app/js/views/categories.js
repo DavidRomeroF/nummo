@@ -3,7 +3,7 @@
 import { h, replace } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import {
-  section, list, row, tile, field, textInput, segmented, iconPicker, colorPicker, toggleRow, errorText, categoryGrid,
+  section, list, row, tile, field, textInput, segmented, iconPicker, colorPicker, toggleRow, errorText, categoryGrid, selectInput,
 } from '../ui/components.js';
 import { openSheet, confirmDialog } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
@@ -19,6 +19,8 @@ registerViewReset(() => {
   kind = 'expense';
   sorting = false;
 });
+
+const parentName = (c) => store.getState().categories.find((p) => p.id === c.parentId)?.name ?? '';
 
 export function categoriesView() {
   const state = store.getState();
@@ -43,7 +45,7 @@ export function categoriesView() {
       section({ caption: sorting ? 'Este orden es el que verás al apuntar un movimiento.' : null },
         list(active.map((c, i) => (sorting
           ? row({ lead: tile(c), title: c.name, trailing: moveButtons(active, i, (ids) => store.reorderCategories(ids)) })
-          : row({ lead: tile(c), title: c.name, subtitle: usage(c), chevron: true, onClick: () => openCategoryForm({ category: c }) }))))),
+          : row({ lead: tile(c), title: c.parentId ? `${parentName(c)} › ${c.name}` : c.name, subtitle: usage(c), chevron: true, onClick: () => openCategoryForm({ category: c }) }))))),
       h('button', { type: 'button', class: 'btn', onClick: () => openCategoryForm({ kind }) }, icon('plus'), 'Nueva categoría'),
       archived.length
         ? section({ title: 'Archivadas', caption: 'No aparecen al apuntar movimientos, pero se conservan en el historial.' },
@@ -83,11 +85,17 @@ export function openCategoryForm({ category = null, kind: newKind = 'expense' } 
   const icons = iconPicker(draft.icon, draft.color, (value) => { draft.icon = value; refresh(); });
   const error = errorText();
   refresh();
+  // Subcategoría: un solo nivel, dentro de una categoría principal del mismo tipo.
+  const kindOf = category?.kind ?? newKind;
+  const all = store.getState().categories;
+  const hasChildren = editing && all.some((c) => c.parentId === category.id);
+  const parents = all.filter((c) => c.kind === kindOf && !c.parentId && c.id !== category?.id && (!c.archived || c.id === category?.parentId));
+  const parentPicker = selectInput(parents.map((c) => ({ value: c.id, label: c.name })), category?.parentId ?? '', { placeholder: 'Ninguna (categoría principal)', label: 'Dentro de' });
 
   const save = () => {
     error.textContent = '';
     try {
-      const data = { name: name.value, icon: draft.icon, color: draft.color, archived: draft.archived };
+      const data = { name: name.value, icon: draft.icon, color: draft.color, archived: draft.archived, parentId: parentPicker.select.value || null };
       if (editing) store.updateCategory(category.id, data);
       else store.addCategory({ ...data, kind: newKind });
       sheet.close();
@@ -131,6 +139,7 @@ export function openCategoryForm({ category = null, kind: newKind = 'expense' } 
     body: [
       preview,
       field('Nombre', name),
+      hasChildren ? null : field('Dentro de', parentPicker.el, { input: parentPicker.select, help: 'Opcional. Por ejemplo, «Gimnasio» dentro de «Deporte».' }),
       field('Símbolo', icons.el),
       field('Color', colorPicker(draft.color, (value) => { draft.color = value; icons.setColor(value); refresh(); })),
       editing ? list([toggleRow('Archivada', draft.archived, (checked) => { draft.archived = checked; }, { help: 'No aparecerá al apuntar movimientos.' })], { plain: true }) : null,

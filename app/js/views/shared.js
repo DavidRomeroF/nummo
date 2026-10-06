@@ -3,7 +3,7 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { row, tile, progress } from '../ui/components.js';
-import { describeMovement, dueText } from '../ui/format.js';
+import { describeMovement, dueText, shortDate } from '../ui/format.js';
 import { formatMoney } from '../core/money.js';
 import { accountTypeInfo, COLOR_KEYS } from '../core/catalog.js';
 import { openMovementForm } from './movement-form.js';
@@ -24,7 +24,8 @@ export function movementRow(movement, look, { onClick = () => openMovementForm({
 }
 
 export function accountRow(account, balance, { onClick = null, chevron = false } = {}) {
-  const details = [accountTypeInfo(account.type).label];
+  const details = account.bank?.ibanMasked ? [account.bank.ibanMasked] : [accountTypeInfo(account.type).label];
+  if (account.deposit?.maturityDate) details.push(`vence el ${shortDate(account.deposit.maturityDate)}`);
   if (!account.includeInTotal) details.push('no suma al total');
   if (account.archived) details.push('archivada');
   return row({
