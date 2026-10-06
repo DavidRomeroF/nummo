@@ -7,7 +7,7 @@ import * as store from '../store.js';
 import { newId } from '../ids.js';
 import { ValidationError } from '../model.js';
 import { BankError } from './provider.js';
-import { createEnableBankingProvider } from './enablebanking.js';
+import { createEnableBankingProvider, normalizeProxyUrl } from './enablebanking.js';
 import { importPrivateKey, checkPem } from './jwt.js';
 import { syncConnection, syncStatus, withSyncLock, bankFieldsFor } from './sync.js';
 
@@ -18,20 +18,38 @@ const APP_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 
 // --- Configuración (aplicación propia en Enable Banking) ---------------------------------------
 
-/** { appId } si la aplicación está configurada (nunca devuelve la clave). */
+/** { appId, proxyUrl } si la aplicación está configurada (nunca devuelve la clave). */
 export function getConfig() {
   const eb = store.getSecrets()?.eb;
-  return eb?.appId ? { appId: eb.appId } : null;
+  return eb?.appId ? { appId: eb.appId, proxyUrl: eb.proxyUrl ?? null } : null;
 }
 
-/** Valida y guarda el identificador y la clave privada (.pem) de la aplicación. */
-export async function saveConfig({ appId, pem }) {
+/**
+ * Valida y guarda el identificador, la clave privada (.pem) y el intermediario (Cloudflare Worker).
+ * Al editar, la clave se puede dejar en blanco para conservar la guardada.
+ */
+export async function saveConfig({ appId, pem = '', proxyUrl = '' }) {
   const id = String(appId ?? '').trim();
   if (!APP_ID_RE.test(id)) throw new ValidationError('El identificador de la aplicación debe ser como 1a2b3c4d-1234-…');
-  const cleanPem = checkPem(pem);
-  await importPrivateKey(cleanPem); // comprueba que se puede usar para firmar
   const secrets = store.getSecrets() ?? {};
-  await store.setSecrets({ ...secrets, eb: { appId: id, pem: cleanPem }, sessions: secrets.sessions ?? {} });
+  let cleanPem = secrets.eb?.pem ?? null;
+  if (String(pem).trim() || !cleanPem) {
+    cleanPem = checkPem(pem);
+    await importPrivateKey(cleanPem); // comprueba que se puede usar para firmar
+  }
+  let proxy = null;
+  if (String(proxyUrl).trim()) {
+    proxy = normalizeProxyUrl(proxyUrl);
+    if (!proxy) throw new ValidationError('El intermediario debe ser una dirección como https://nummo-banco.tu-usuario.workers.dev');
+  }
+  await store.setSecrets({ ...secrets, eb: { appId: id, pem: cleanPem, proxyUrl: proxy }, sessions: secrets.sessions ?? {} });
+}
+
+/** Comprueba que se puede hablar con Enable Banking (pide la lista de bancos). */
+export async function testConnection() {
+  const provider = await getProvider();
+  const banks = await provider.listBanks(DEFAULT_COUNTRY);
+  return banks.length;
 }
 
 /** Olvida la aplicación (solo si no queda ningún banco conectado). */
@@ -52,7 +70,7 @@ export async function getProvider() {
   const eb = store.getSecrets()?.eb;
   if (!eb?.appId || !eb.pem) throw new BankError('no_secrets');
   const privateKey = await importPrivateKey(eb.pem);
-  return createEnableBankingProvider({ appId: eb.appId, privateKey });
+  return createEnableBankingProvider({ appId: eb.appId, privateKey, proxyUrl: eb.proxyUrl ?? null });
 }
 
 /** Dirección a la que vuelve el banco: la de la propia app (debe estar registrada en Enable Banking). */

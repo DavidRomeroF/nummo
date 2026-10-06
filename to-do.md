@@ -48,9 +48,9 @@
       aplicación en Enable Banking, vincular las cuentas en su panel, registrar la Redirect URL de GitHub Pages y conectar.
       Justificación: comprobar en real que la API admite llamadas desde el navegador (CORS), qué cuentas devuelve
       Caja Rural (¿ahorro, tarjetas, plazo fijo?), cuánto historial da y si el identificador de apunte es estable.
-- [ ] 🔴 [seguridad] Si la API de Enable Banking NO admite llamadas desde el navegador (CORS): intermediario mínimo
-      propio (Cloudflare Worker) que solo reenvíe a api.enablebanking.com, con la clave en el Worker y autenticación.
-      Justificación: sin eso la conexión no funciona desde una web; el diseño (provider.js) ya lo permite sin tocar el resto.
+- [x] 2026-10-06 — CORS comprobado: la API de Enable Banking no admite llamadas desde una web. Añadido el intermediario
+      Cloudflare Worker (tools/enablebanking-proxy/), configurable en la app y con prueba de conexión.
+- [ ] 🔴 [funcionalidad] Crear el Worker en Cloudflare y pegar su dirección en Nummo (lo hace la persona propietaria).
 - [ ] 🟡 [funcionalidad] Comprobar en un iPhone real la vuelta del banco a la app instalada (o a Safari) y el aviso con la
       dirección para pegar. Justificación: iOS trata distinto las PWA instaladas y no se puede reproducir en el ordenador.
 - [ ] 🟡 [funcionalidad] Análisis por subcategoría y por comercio (los datos ya están: `parentId`, `source.cp`).

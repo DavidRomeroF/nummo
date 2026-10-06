@@ -3,7 +3,7 @@
 // La versión y la lista de archivos las genera tools/release.py: no las edites a mano.
 
 // @generated-start
-const VERSION = '731eb5f557ff';
+const VERSION = '3dd6b8c633e5';
 const ASSETS = ["./", "css/app.css", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/icon.svg", "index.html", "js/core/backup.js", "js/core/bank/enablebanking.js", "js/core/bank/jwt.js", "js/core/bank/provider.js", "js/core/bank/service.js", "js/core/bank/sync.js", "js/core/catalog.js", "js/core/color.js", "js/core/crypto.js", "js/core/dates.js", "js/core/finance.js", "js/core/idb.js", "js/core/ids.js", "js/core/import/files.js", "js/core/import/normalize.js", "js/core/import/plan.js", "js/core/import/rules.js", "js/core/import/statement.js", "js/core/model.js", "js/core/money.js", "js/core/recurring.js", "js/core/store.js", "js/core/text.js", "js/core/vault.js", "js/main.js", "js/theme-boot.js", "js/ui/charts.js", "js/ui/components.js", "js/ui/dom.js", "js/ui/focus.js", "js/ui/format.js", "js/ui/icon-data.js", "js/ui/icons.js", "js/ui/pinpad.js", "js/ui/pwa.js", "js/ui/restore.js", "js/ui/router.js", "js/ui/session.js", "js/ui/sheet.js", "js/ui/shell.js", "js/ui/theme.js", "js/ui/toast.js", "js/views/about.js", "js/views/accounts.js", "js/views/appearance.js", "js/views/backup.js", "js/views/banks.js", "js/views/budgets.js", "js/views/categories.js", "js/views/debt-forms.js", "js/views/debts.js", "js/views/home.js", "js/views/import.js", "js/views/more.js", "js/views/movement-form.js", "js/views/movements.js", "js/views/recurring.js", "js/views/rules.js", "js/views/screens.js", "js/views/security.js", "js/views/shared.js", "js/views/stats.js", "manifest.webmanifest"];
 // @generated-end
 

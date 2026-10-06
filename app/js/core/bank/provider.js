@@ -21,7 +21,7 @@
 
 export const BANK_ERROR_MESSAGES = {
   network: 'No se ha podido contactar con el servicio del banco. Comprueba la conexión.',
-  blocked: 'El navegador no ha podido llamar al servicio de Open Banking (puede que no admita llamadas desde una web).',
+  blocked: 'El navegador no puede llamar directamente a Enable Banking. Configura el intermediario (Cloudflare Worker) en Bancos → Aplicación de Enable Banking.',
   timeout: 'El banco ha tardado demasiado en responder. Inténtalo más tarde.',
   app_auth: 'Enable Banking no reconoce la aplicación. Revisa el identificador y la clave privada.',
   expired: 'El permiso para leer tus cuentas ha caducado. Vuelve a conectar el banco.',

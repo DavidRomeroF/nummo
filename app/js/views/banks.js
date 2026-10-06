@@ -111,8 +111,22 @@ function openConfigSheet({ then = null } = {}) {
     class: 'input mono', rows: 4, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
     placeholder: '-----BEGIN PRIVATE KEY-----…', 'aria-label': 'Contenido de la clave privada',
   });
+  const proxy = textInput({ value: current?.proxyUrl ?? '', placeholder: 'https://nummo-banco.tu-usuario.workers.dev', maxLength: 140, capitalize: 'off', label: 'Intermediario' });
   const error = errorText();
   const save = h('button', { type: 'button', class: 'btn primary' }, 'Guardar');
+  const test = h('button', { type: 'button', class: 'btn' }, icon('refresh'), 'Probar conexión');
+  test.addEventListener('click', async () => {
+    error.textContent = '';
+    test.setAttribute('aria-busy', 'true');
+    try {
+      const n = await service.testConnection();
+      toast(`Conexión correcta: Enable Banking responde (${n} bancos en España).`);
+    } catch (e) {
+      error.textContent = errorMessage(e);
+    } finally {
+      test.removeAttribute('aria-busy');
+    }
+  });
   file.addEventListener('click', () => {
     const resume = pauseAutoLock();
     const done = () => setTimeout(resume, 1000);
@@ -122,7 +136,7 @@ function openConfigSheet({ then = null } = {}) {
   save.addEventListener('click', async () => {
     error.textContent = '';
     const chosen = file.files?.[0];
-    if (!chosen && !pasted.value.trim()) {
+    if (!current && !chosen && !pasted.value.trim()) {
       error.textContent = 'Elige el archivo .pem o pega su contenido.';
       return;
     }
@@ -132,11 +146,18 @@ function openConfigSheet({ then = null } = {}) {
     }
     save.setAttribute('aria-busy', 'true');
     try {
-      await service.saveConfig({ appId: appId.value, pem: chosen ? await chosen.text() : pasted.value });
+      await service.saveConfig({ appId: appId.value, pem: chosen ? await chosen.text() : pasted.value, proxyUrl: proxy.value });
       file.value = '';
       pasted.value = '';
+      toast('Guardado. Comprobando la conexión…');
+      try {
+        await service.testConnection();
+      } catch (e) {
+        error.textContent = errorMessage(e); // se queda abierta para corregir el intermediario
+        return;
+      }
       sheet.close();
-      toast('Aplicación de Enable Banking guardada');
+      toast('Enable Banking configurado y respondiendo');
       then?.();
     } catch (e) {
       error.textContent = errorMessage(e);
@@ -155,12 +176,15 @@ function openConfigSheet({ then = null } = {}) {
         h('li', null, 'En «API applications», crea una aplicación de entorno «Production» y elige generar la clave en el navegador. Se descargará un archivo .pem.'),
         h('li', null, 'En «Redirect URLs» añade exactamente esta dirección:', h('div', { class: 'code-box' }, service.redirectUrl())),
         h('li', null, 'Vincula tus cuentas de Caja Rural en el panel («Link accounts»): en el modo gratuito solo se ven las cuentas vinculadas.'),
-        h('li', null, 'Copia aquí el identificador de la aplicación (Application ID) y elige el archivo .pem.')),
+        h('li', null, 'Copia aquí el identificador de la aplicación (Application ID) y elige el archivo .pem.'),
+        h('li', null, 'Enable Banking no admite llamadas directas desde una web: crea el intermediario gratuito en Cloudflare (ver tools/enablebanking-proxy en el proyecto) y pega aquí su dirección.')),
       field('Identificador de la aplicación', appId),
       field('Clave privada (.pem)', file, { help: 'Se guarda cifrada con tu contraseña y nunca sale de este dispositivo. No se incluye en las copias de seguridad.' }),
-      field('O pega aquí su contenido', pasted, { input: pasted, help: 'Si el móvil no te deja elegir el archivo: ábrelo como texto y copia todo, desde «-----BEGIN» hasta «-----END … KEY-----».' }),
+      field('O pega aquí su contenido', pasted, { input: pasted, help: current ? 'Déjalo en blanco para conservar la clave que ya está guardada.' : 'Si el móvil no te deja elegir el archivo: ábrelo como texto y copia todo, desde «-----BEGIN» hasta «-----END … KEY-----».' }),
+      field('Intermediario (Cloudflare Worker)', proxy, { help: 'Solo reenvía las peticiones; tu clave no sale del móvil. Dirección terminada en .workers.dev.' }),
       error,
       save,
+      current ? test : null,
       current ? h('button', {
         type: 'button',
         class: 'btn danger',

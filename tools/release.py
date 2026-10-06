@@ -46,7 +46,7 @@ NETWORK_ALLOWED = {APP / "sw.js", APP / "js" / "core" / "bank" / "enablebanking.
 ALLOWED_ORIGIN = "https://api.enablebanking.com"
 URL_RE = re.compile(r"https?://[A-Za-z0-9.-]+")
 CONSOLE = re.compile(r"\bconsole\.(log|info|debug|table|dir)\b")
-CSP_CONNECT = "connect-src 'self' https://api.enablebanking.com;"
+CSP_CONNECT = "connect-src 'self' https://api.enablebanking.com https://*.workers.dev;"
 # Material de claves privadas (cabecera PEM seguida de datos en Base64) y tokens habituales.
 SECRET_PATTERNS = [
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----\s*[A-Za-z0-9+/=]{64,}"), "clave privada en PEM"),

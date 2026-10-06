@@ -375,7 +375,7 @@ test('seguridad: el acceso al banco exige contraseña, va cifrado y no entra en 
   await vault.changeSecret('112233', PASSWORD, 'password');
   await assert.rejects(() => service.saveConfig({ appId: 'no-es-un-id', pem }), (e) => e instanceof ValidationError);
   await service.saveConfig({ appId: APP_ID, pem });
-  assert.deepEqual(service.getConfig(), { appId: APP_ID });
+  assert.deepEqual(service.getConfig(), { appId: APP_ID, proxyUrl: null });
   await store.flush();
   // En disco no hay nada legible.
   const raw = JSON.stringify(await idb.entries('vault'), (k, v) => (v instanceof Uint8Array ? [...v] : v));
@@ -473,4 +473,45 @@ test('seguridad: borrar todo retira antes los permisos en el banco', async () =>
     service.setProviderForTests(null);
   }
   assert.equal(provider.calls.filter((c) => c === 'revoke').length, 2);
+});
+
+test('intermediario: la app puede usar un Worker propio y solo uno con forma válida', async () => {
+  const privateKey = await importPrivateKey((await keys()).pem);
+  const fetchImpl = fakeFetch(() => ({ body: { aspsps: [{ name: 'Caja Rural', country: 'ES' }] } }));
+  const provider = createEnableBankingProvider({ appId: APP_ID, privateKey, proxyUrl: 'https://Nummo-Banco.david.workers.dev/', fetchImpl });
+  await provider.listBanks('ES');
+  assert.ok(fetchImpl.log[0].url.startsWith('https://nummo-banco.david.workers.dev/aspsps?'));
+  for (const bad of ['http://x.y.workers.dev', 'https://evil.com', 'https://x.workers.dev.evil.com', 'https://a.b.workers.dev/ruta']) {
+    assert.throws(() => createEnableBankingProvider({ appId: APP_ID, privateKey, proxyUrl: bad }), (e) => e instanceof BankError);
+  }
+});
+
+test('intermediario: el Worker solo reenvía rutas de lectura y solo a tu web', async () => {
+  const { default: worker } = await import('../tools/enablebanking-proxy/worker.js');
+  const realFetch = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url, init) => {
+    seen.push({ url, init });
+    return new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json', 'set-cookie': 'x=1' } });
+  };
+  // El navegador no deja poner «Origin» en un Request: se simula la petición que recibe Cloudflare.
+  const req = (url, { method = 'GET', headers = {}, body = '' } = {}) => ({ url, method, headers: new Headers(headers), text: async () => body });
+  const ORIGIN = { Origin: 'https://davidromerof.github.io' };
+  try {
+    const ok = await worker.fetch(req('https://w.example/accounts/abc/transactions?date_from=2026-01-01', { headers: { ...ORIGIN, Authorization: 'Bearer j', Cookie: 'c=1' } }));
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get('access-control-allow-origin'), 'https://davidromerof.github.io');
+    assert.equal(ok.headers.get('set-cookie'), null, 'no pasa cabeceras de más');
+    assert.equal(seen[0].url, 'https://api.enablebanking.com/accounts/abc/transactions?date_from=2026-01-01');
+    assert.equal(seen[0].init.headers.get('authorization'), 'Bearer j');
+    assert.equal(seen[0].init.headers.get('cookie'), null);
+    const pre = await worker.fetch(req('https://w.example/auth', { method: 'OPTIONS', headers: ORIGIN }));
+    assert.equal(pre.status, 204);
+    assert.equal((await worker.fetch(req('https://w.example/aspsps', { headers: { Origin: 'https://otra-web.com' } }))).status, 403);
+    assert.equal((await worker.fetch(req('https://w.example/aspsps'))).status, 403, 'sin origen, nada');
+    assert.equal((await worker.fetch(req('https://w.example/payments', { method: 'POST', body: '{}', headers: ORIGIN }))).status, 404, 'nada de pagos');
+    assert.equal(seen.length, 1, 'lo rechazado no llega a la API');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

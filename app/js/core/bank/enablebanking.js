@@ -12,6 +12,17 @@ import { isISODate } from '../dates.js';
 import { MAX_CENTS } from '../money.js';
 
 export const API_BASE = 'https://api.enablebanking.com';
+/**
+ * La API de Enable Banking no admite llamadas desde una web (CORS). Por eso las peticiones pueden
+ * pasar por un intermediario propio en Cloudflare Workers (tools/enablebanking-proxy/), que solo
+ * reenvía: la clave privada sigue en el dispositivo y firma cada petición aquí.
+ * La CSP de la app solo permite conectar con *.workers.dev además de la API.
+ */
+export const PROXY_RE = /^https:\/\/[a-z0-9-]{1,63}\.[a-z0-9-]{1,63}\.workers\.dev$/;
+export function normalizeProxyUrl(value) {
+  const url = String(value ?? '').trim().replace(/\/+$/, '').toLowerCase();
+  return PROXY_RE.test(url) ? url : null;
+}
 const TIMEOUT_MS = 25_000;
 const MAX_PAGES = 30;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
@@ -99,11 +110,13 @@ const SESSION_STATUS = { AUTHORIZED: 'active', EXPIRED: 'expired', REVOKED: 'rev
 /**
  * Crea el proveedor. privateKey: CryptoKey no extraíble (jwt.js). fetchImpl solo se cambia en tests.
  */
-export function createEnableBankingProvider({ appId, privateKey, fetchImpl = (...a) => globalThis.fetch(...a), now = () => Date.now() }) {
+export function createEnableBankingProvider({ appId, privateKey, proxyUrl = null, fetchImpl = (...a) => globalThis.fetch(...a), now = () => Date.now() }) {
   if (typeof appId !== 'string' || !/^[0-9a-f-]{8,64}$/i.test(appId)) throw new BankError('app_auth');
+  const base = proxyUrl === null ? API_BASE : normalizeProxyUrl(proxyUrl);
+  if (!base) throw new BankError('blocked');
 
   async function request(method, path, { body = null, query = null } = {}) {
-    const url = new URL(path, API_BASE);
+    const url = new URL(path, base);
     if (query) for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
     const jwt = await signAppJwt(privateKey, appId, { now: now() });
     const controller = new AbortController();

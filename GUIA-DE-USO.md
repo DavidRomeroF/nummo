@@ -212,7 +212,8 @@ Antes, una sola vez:
 
 1. **Protege Nummo con contraseña**: Más → Seguridad → *Usar contraseña en vez de PIN*. El acceso al banco solo se guarda con contraseña.
 2. **Crea tu aplicación gratuita en Enable Banking** (los pasos salen en la propia app al pulsar *Conectar un banco*): regístrate, crea una aplicación de producción, añade la dirección de Nummo como *Redirect URL*, **vincula tus cuentas** en su panel y guarda el archivo `.pem`.
-3. En Nummo, escribe el identificador de la aplicación y elige el archivo `.pem`.
+3. **Crea el intermediario gratuito en Cloudflare** (5 minutos): Enable Banking no admite llamadas directas desde una web. Los pasos están en `tools/enablebanking-proxy/README.md`.
+4. En Nummo, escribe el identificador de la aplicación, elige el archivo `.pem` (o pega su contenido) y pega la dirección del intermediario. Al guardar, Nummo comprueba la conexión.
 
 Después:
 
