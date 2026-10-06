@@ -43,7 +43,9 @@ export function describeStats(stats) {
 }
 
 export function openImportSheet({ accountId = null } = {}) {
-  const fileInput = h('input', { class: 'input', type: 'file', accept: '.xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  // Sin filtro de tipo: algunos móviles ocultan archivos válidos si el banco no les puso bien el tipo.
+  // El formato se reconoce por el contenido.
+  const fileInput = h('input', { class: 'input', type: 'file' });
   const error = errorText();
   const step = h('div', { class: 'form' });
   const readButton = h('button', { type: 'button', class: 'btn primary' }, icon('file-spreadsheet'), 'Leer archivo');

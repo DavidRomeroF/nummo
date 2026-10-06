@@ -104,7 +104,13 @@ export async function autoSyncBanks() {
 function openConfigSheet({ then = null } = {}) {
   const current = service.getConfig();
   const appId = textInput({ value: current?.appId ?? '', placeholder: '1a2b3c4d-…', maxLength: 64, capitalize: 'off', label: 'Identificador de la aplicación' });
-  const file = h('input', { class: 'input', type: 'file', accept: '.pem,application/x-pem-file,text/plain' });
+  // Sin filtro de tipo: Android e iOS no conocen el tipo de un .pem y lo ocultarían en el selector.
+  // Se comprueba el contenido, no la extensión.
+  const file = h('input', { class: 'input', type: 'file' });
+  const pasted = h('textarea', {
+    class: 'input mono', rows: 4, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
+    placeholder: '-----BEGIN PRIVATE KEY-----…', 'aria-label': 'Contenido de la clave privada',
+  });
   const error = errorText();
   const save = h('button', { type: 'button', class: 'btn primary' }, 'Guardar');
   file.addEventListener('click', () => {
@@ -116,18 +122,19 @@ function openConfigSheet({ then = null } = {}) {
   save.addEventListener('click', async () => {
     error.textContent = '';
     const chosen = file.files?.[0];
-    if (!chosen) {
-      error.textContent = 'Elige el archivo .pem con la clave privada.';
+    if (!chosen && !pasted.value.trim()) {
+      error.textContent = 'Elige el archivo .pem o pega su contenido.';
       return;
     }
-    if (chosen.size > MAX_PEM_LENGTH) {
+    if (chosen && chosen.size > MAX_PEM_LENGTH) {
       error.textContent = 'Ese archivo no parece una clave privada.';
       return;
     }
     save.setAttribute('aria-busy', 'true');
     try {
-      await service.saveConfig({ appId: appId.value, pem: await chosen.text() });
+      await service.saveConfig({ appId: appId.value, pem: chosen ? await chosen.text() : pasted.value });
       file.value = '';
+      pasted.value = '';
       sheet.close();
       toast('Aplicación de Enable Banking guardada');
       then?.();
@@ -151,6 +158,7 @@ function openConfigSheet({ then = null } = {}) {
         h('li', null, 'Copia aquí el identificador de la aplicación (Application ID) y elige el archivo .pem.')),
       field('Identificador de la aplicación', appId),
       field('Clave privada (.pem)', file, { help: 'Se guarda cifrada con tu contraseña y nunca sale de este dispositivo. No se incluye en las copias de seguridad.' }),
+      field('O pega aquí su contenido', pasted, { input: pasted, help: 'Si el móvil no te deja elegir el archivo: ábrelo como texto y copia todo, desde «-----BEGIN» hasta «-----END … KEY-----».' }),
       error,
       save,
       current ? h('button', {
