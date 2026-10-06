@@ -18,12 +18,12 @@ import * as vault from '../core/vault.js';
 import { ValidationError } from '../core/model.js';
 import { formatMoney } from '../core/money.js';
 import { todayISO } from '../core/dates.js';
-import { foldText } from '../core/text.js';
 import { BankError } from '../core/bank/provider.js';
 import { KeyFormatError, MAX_PEM_LENGTH } from '../core/bank/jwt.js';
 import { syncStatus, MAX_SYNCS_PER_DAY } from '../core/bank/sync.js';
 import * as service from '../core/bank/service.js';
 import { findTransferCandidates } from '../core/import/plan.js';
+import { searchBanks } from '../core/bank/search.js';
 import { isTransferText } from '../core/import/rules.js';
 import { hashIban, maskIban } from '../core/import/normalize.js';
 import { openImportSheet, describeStats } from './import.js';
@@ -226,14 +226,16 @@ async function startConnect({ reconnect = null } = {}) {
 }
 
 function openBankPicker() {
-  const search = textInput({ placeholder: 'Buscar banco (p. ej. Caja Rural)', maxLength: 40, label: 'Buscar banco' });
+  const search = textInput({ placeholder: 'Escribe el nombre (p. ej. Caixalmassora)', maxLength: 40, label: 'Buscar banco' });
   const results = h('div', { 'aria-live': 'polite' }, h('p', { class: 'help' }, 'Cargando bancos…'));
   let banks = [];
   const render = () => {
-    const q = foldText(search.value.trim());
-    const shown = banks.filter((b) => !q || foldText(b.name).includes(q)).slice(0, 60);
+    const found = searchBanks(banks, search.value);
+    const shown = found.slice(0, 80);
     replace(results, shown.length
-      ? list(shown.map((b) => row({
+      ? [h('p', { class: 'help' }, search.value.trim()
+        ? `${found.length} ${found.length === 1 ? 'banco' : 'bancos'}`
+        : `${banks.length} bancos disponibles en España. Escribe para buscar.`), list(shown.map((b) => row({
         lead: tile({ icon: 'building-bank', color: 'green' }),
         title: b.name,
         subtitle: b.beta ? 'Integración reciente (beta)' : null,
@@ -242,8 +244,8 @@ function openBankPicker() {
           sheet.close();
           confirmAndGo(b);
         },
-      })))
-      : h('p', { class: 'help' }, 'No hay ningún banco con ese nombre.'));
+      })))]
+      : h('p', { class: 'help' }, 'No hay ningún banco con ese nombre. Prueba con otra parte del nombre (por ejemplo «Almassora» o «Rural»).'));
   };
   search.addEventListener('input', render);
   const sheet = openSheet({ title: 'Elige tu banco', tall: true, focus: search, body: [field('Banco', search), results] });
@@ -251,7 +253,6 @@ function openBankPicker() {
     .then((p) => p.listBanks(service.DEFAULT_COUNTRY))
     .then((list_) => {
       banks = list_;
-      if (!search.value) search.value = 'Caja Rural';
       render();
     })
     .catch((e) => replace(results, notice({ iconName: 'alert-triangle', kind: 'warn', text: errorMessage(e) })));

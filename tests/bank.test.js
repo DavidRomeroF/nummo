@@ -515,3 +515,19 @@ test('intermediario: el Worker solo reenvía rutas de lectura y solo a tu web', 
     globalThis.fetch = realFetch;
   }
 });
+
+test('banco: la búsqueda encuentra el banco aunque se escriba distinto', async () => {
+  const { searchBanks } = await import('../app/js/core/bank/search.js');
+  const banks = [
+    { name: 'Caja Rural San José de Almassora' }, { name: 'Caja Rural de Navarra' }, { name: 'CaixaBank' },
+    { name: 'Cajamar Caja Rural' }, { name: 'BBVA' },
+  ];
+  const names = (q) => searchBanks(banks, q).map((b) => b.name);
+  assert.equal(names('caixalmassora')[0], 'Caja Rural San José de Almassora');
+  assert.equal(names('Almassora')[0], 'Caja Rural San José de Almassora');
+  assert.equal(names('caja rural almassora')[0], 'Caja Rural San José de Almassora');
+  assert.equal(names('CAIXA RURAL ALMASSORA')[0], 'Caja Rural San José de Almassora');
+  assert.deepEqual(names('bbva'), ['BBVA']);
+  assert.equal(names('').length, banks.length);
+  assert.deepEqual(names('zzzzzz'), []);
+});

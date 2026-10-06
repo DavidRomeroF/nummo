@@ -167,10 +167,12 @@ export function createEnableBankingProvider({ appId, privateKey, proxyUrl = null
     label: 'Enable Banking',
 
     async listBanks(country = 'ES') {
-      const data = await request('GET', '/aspsps', { query: { country, psu_type: 'personal', service: 'AIS' } });
+      // Sin filtros en la petición: algunos bancos no declaran el tipo de servicio y desaparecerían.
+      const data = await request('GET', '/aspsps', { query: { country } });
       const list = Array.isArray(data?.aspsps) ? data.aspsps : [];
       return list
         .filter((a) => typeof a?.name === 'string')
+        .filter((a) => !Array.isArray(a.psu_types) || !a.psu_types.length || a.psu_types.includes('personal'))
         .map((a) => ({
           name: a.name.slice(0, 60),
           country: str(a.country, 2) || country,
