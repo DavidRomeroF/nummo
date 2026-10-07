@@ -118,9 +118,14 @@ export async function completeConnect({ code, state, error }) {
     const { pending: _drop, ...rest } = store.getSecrets() ?? {};
     await store.setSecrets(Object.keys(rest).length ? rest : null);
   };
-  if (!pending || typeof state !== 'string' || state !== pending.state || Date.now() - pending.at > PENDING_AUTH_MAX_MS) {
-    if (pending) await clearPending();
-    throw new BankError('state');
+  if (pending && Date.now() - pending.at > PENDING_AUTH_MAX_MS) {
+    await clearPending();
+    throw new BankError('state', { detail: 'PENDING_EXPIRED' });
+  }
+  if (!pending || typeof state !== 'string' || state !== pending.state) {
+    // La conexión se empezó en otra instalación de Nummo con datos propios (por ejemplo, la app
+    // instalada frente al navegador). La de aquí, si la hay, se conserva.
+    throw new BankError('state', { detail: 'OTHER_INSTALL' });
   }
   if (error || !code) {
     await clearPending();

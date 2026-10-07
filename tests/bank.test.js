@@ -561,3 +561,11 @@ test('banco: solo se da el permiso por caducado si lo dice el banco, y queda el 
   await assert.rejects(() => sync(provider));
   assert.equal(store.getState().connections[0].lastError.detail, 'EXPIRED_SESSION');
 });
+
+test('banco: una vuelta del banco que no es de esta instalación no borra la conexión a medias de aquí', async () => {
+  await setupBank();
+  await service.saveConfig({ appId: APP_ID, pem: (await keys()).pem });
+  await store.setSecrets({ ...store.getSecrets(), pending: { state: 'estadoDeAqui123', bankName: 'Caja Rural', country: 'ES', at: Date.now() } });
+  await assert.rejects(() => service.completeConnect({ code: 'abc', state: 'estadoDeOtra456' }), (e) => e.code === 'state' && e.detail === 'OTHERINSTALL'.replace('OTHERINSTALL', 'OTHER_INSTALL'));
+  assert.equal(store.getSecrets().pending.state, 'estadoDeAqui123');
+});

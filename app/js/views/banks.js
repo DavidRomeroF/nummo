@@ -285,8 +285,42 @@ export async function handleBankCallback(callback) {
     await openLinkAccounts(connection, accounts);
   } catch (e) {
     busy.close(true);
-    toast(errorMessage(e), { kind: 'error', duration: 8000 });
+    if (e instanceof BankError && e.detail === 'OTHER_INSTALL') openFinishElsewhere(callback);
+    else toast(errorMessage(e), { kind: 'error', duration: 8000 });
   }
+}
+
+/**
+ * El banco ha vuelto a una instalación de Nummo distinta de la que empezó la conexión (por ejemplo,
+ * al navegador en lugar de a la app instalada: tienen datos separados). Se ofrece copiar la dirección
+ * de vuelta para terminar en la otra.
+ */
+function openFinishElsewhere(callback) {
+  const params = new URLSearchParams(Object.entries(callback).filter(([, v]) => v));
+  const back = `${service.redirectUrl()}?${params}`;
+  const copy = h('button', { type: 'button', class: 'btn primary' }, 'Copiar dirección');
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(back);
+      copy.textContent = 'Copiada';
+    } catch {
+      copy.textContent = 'Selecciónala y cópiala a mano';
+    }
+  });
+  openSheet({
+    title: 'Termina en la otra app',
+    tall: true,
+    body: [
+      notice({ iconName: 'alert-triangle', kind: 'warn', text: 'La conexión con el banco se empezó en otra instalación de Nummo (por ejemplo, la app instalada) y el banco te ha devuelto aquí. Cada una guarda sus datos por separado.' }),
+      h('ol', { class: 'steps' },
+        h('li', null, 'Copia esta dirección.'),
+        h('li', null, 'Abre la Nummo donde empezaste a conectar.'),
+        h('li', null, 'Ve a Más → Bancos y extractos → «Pegar la dirección de vuelta del banco». Tienes unos minutos.')),
+      h('p', { class: 'code-box' }, back),
+      copy,
+      h('p', { class: 'help' }, 'Consejo: usa el banco solo en una de las dos. El banco solo admite un permiso a la vez, y conectar en una anula el de la otra.'),
+    ],
+  });
 }
 
 /** Elegir qué cuentas del banco vincular y con qué cuenta de Nummo. */
