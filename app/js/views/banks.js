@@ -409,7 +409,11 @@ function openConnectionSheet(connection) {
       list([
         row({ title: 'Permiso válido hasta', value: connection.validUntil ? shortDate(todayISO(new Date(connection.validUntil))) : '—' }),
         row({ title: 'Consultas en las últimas 24 h', value: `${status.attemptsToday} de ${MAX_SYNCS_PER_DAY}` }),
-        connection.lastError ? row({ title: 'Último error', subtitle: errorMessage(new BankError(connection.lastError.code)), value: agoShort(connection.lastError.at) }) : null,
+        connection.lastError ? row({
+          title: 'Último error',
+          subtitle: [errorMessage(new BankError(connection.lastError.code)), connection.lastError.detail ? `Código técnico: ${connection.lastError.detail}` : null].filter(Boolean).join(' · '),
+          value: agoShort(connection.lastError.at),
+        }) : null,
       ]),
       section({ title: 'Cuentas vinculadas' }, accounts.length
         ? list(accounts.map((a) => row({

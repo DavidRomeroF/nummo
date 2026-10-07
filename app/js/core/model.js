@@ -186,7 +186,11 @@ export function normalizeConnection(raw) {
     syncLog: log.filter((e) => isObject(e) && msOrNull(e.at)).slice(-MAX_SYNC_LOG)
       .map((e) => ({ at: e.at, ok: e.ok === true, code: typeof e.code === 'string' ? e.code.slice(0, 40) : '' })),
     lastError: isObject(raw.lastError) && typeof raw.lastError.code === 'string' && msOrNull(raw.lastError.at)
-      ? { code: raw.lastError.code.slice(0, 40), at: raw.lastError.at }
+      ? {
+        code: raw.lastError.code.slice(0, 40),
+        at: raw.lastError.at,
+        detail: typeof raw.lastError.detail === 'string' ? raw.lastError.detail.replace(/[^A-Z0-9_]/gi, '').slice(0, 48) : '',
+      }
       : null,
   };
 }

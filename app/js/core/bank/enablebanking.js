@@ -154,8 +154,15 @@ export function createEnableBankingProvider({ appId, privateKey, proxyUrl = null
     if (response.status === 429 || /RATE_LIMIT/.test(detail)) {
       throw new BankError('rate_limit', { detail, retryAfterMs: Number.isFinite(retry) && retry > 0 ? retry * 1000 : 6 * 3_600_000 });
     }
+    // Solo es «permiso caducado» si lo que caduca es la sesión con el banco. Un JWT caducado o con
+    // la hora mal (reloj del móvil desajustado) es un problema de la firma de la app, no del permiso.
+    if (/JWT|TOKEN|SIGNATURE|IAT|CLOCK/i.test(`${detail} ${data?.message ?? ''}`) && (response.status === 401 || response.status === 403)) {
+      throw new BankError('app_auth', { detail: detail || 'JWT' });
+    }
+    if (/SESSION/.test(detail) && /EXPIRED/.test(detail)) throw new BankError('expired', { detail });
+    if (/REVOKED|CLOSED_SESSION|INVALID_SESSION|SESSION_NOT_FOUND|NO_SESSION/.test(detail)) throw new BankError('revoked', { detail });
     if (/EXPIRED/.test(detail)) throw new BankError('expired', { detail });
-    if (/REVOKED|CLOSED_SESSION|INVALID_SESSION/.test(detail)) throw new BankError('revoked', { detail });
+    if (response.status === 404 && /^\/sessions\//.test(path)) throw new BankError('revoked', { detail: detail || 'SESSION_NOT_FOUND' });
     if (/TRANSACTIONS_PERIOD/.test(detail)) throw new BankError('period', { detail });
     if (response.status === 401 || response.status === 403) throw new BankError('app_auth', { detail });
     if (response.status >= 500 || /ASPSP_ERROR|ASPSP_UNAVAILABLE|TIMEOUT/.test(detail)) throw new BankError('unavailable', { detail });
@@ -214,7 +221,8 @@ export function createEnableBankingProvider({ appId, privateKey, proxyUrl = null
       const data = await request('GET', `/sessions/${encodeURIComponent(sessionId)}`);
       const validUntil = Date.parse(data?.access?.valid_until ?? '');
       return {
-        status: SESSION_STATUS[data?.status] ?? 'pending',
+        status: SESSION_STATUS[data?.status] ?? 'unknown',
+        rawStatus: typeof data?.status === 'string' ? data.status.replace(/[^A-Z0-9_]/gi, '').slice(0, 30) : '',
         validUntil: Number.isFinite(validUntil) ? validUntil : null,
         accountIds: Array.isArray(data?.accounts) ? data.accounts.filter((x) => typeof x === 'string') : [],
       };

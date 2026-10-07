@@ -110,10 +110,11 @@ export async function syncConnection(connectionId, { store, provider, sessionId,
     store.updateConnection(connectionId, { ...patch, syncLog: [...current.syncLog, { at: now, ok: !patch.lastError, code: patch.lastError?.code ?? '' }] });
   };
   try {
-    if (!sessionId) throw new BankError('expired');
+    if (!sessionId) throw new BankError('expired', { detail: 'NO_SESSION_STORED' });
     const session = await provider.getSession(sessionId);
-    if (session.status === 'expired' || session.status === 'revoked') throw new BankError(session.status);
-    if (session.status !== 'active') throw new BankError('expired');
+    if (session.status === 'expired' || session.status === 'revoked') throw new BankError(session.status, { detail: `STATUS_${session.rawStatus ?? ''}` });
+    if (session.status === 'pending') throw new BankError('expired', { detail: `STATUS_${session.rawStatus ?? 'PENDING'}` });
+    // Un estado desconocido no se da por caducado: se intenta leer y, si el banco rechaza, su error lo dirá.
 
     const state = store.getState();
     const linked = state.accounts.filter((a) => a.bank?.connectionId === connectionId && a.bank.externalId);
@@ -142,7 +143,8 @@ export async function syncConnection(connectionId, { store, provider, sessionId,
   } catch (error) {
     const code = error instanceof BankError ? error.code : 'invalid';
     const status = code === 'expired' || code === 'revoked' ? code : code === 'app_auth' ? 'error' : undefined;
-    record({ lastError: { code, at: now }, ...(status ? { status } : {}) });
+    // El código técnico (p. ej. EXPIRED_SESSION) se guarda para poder diagnosticar; nunca lleva datos personales.
+    record({ lastError: { code, at: now, detail: error instanceof BankError ? error.detail : '' }, ...(status ? { status } : {}) });
     throw error instanceof BankError ? error : new BankError('invalid');
   }
 }

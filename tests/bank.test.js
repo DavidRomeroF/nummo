@@ -531,3 +531,33 @@ test('banco: la búsqueda encuentra el banco aunque se escriba distinto', async 
   assert.equal(names('').length, banks.length);
   assert.deepEqual(names('zzzzzz'), []);
 });
+
+test('banco: solo se da el permiso por caducado si lo dice el banco, y queda el código técnico', async () => {
+  const privateKey = await importPrivateKey((await keys()).pem);
+  const cases = [
+    [{ status: 401, body: { error: 'EXPIRED_SESSION' } }, 'expired'],
+    [{ status: 401, body: { error: 'JWT_EXPIRED', message: 'JWT is expired' } }, 'app_auth'],
+    [{ status: 401, body: { message: 'JWT is not valid' } }, 'app_auth'],
+    [{ status: 404, body: {} }, 'revoked'],
+  ];
+  for (const [response, code] of cases) {
+    const provider = createEnableBankingProvider({ appId: APP_ID, privateKey, fetchImpl: fakeFetch(() => response) });
+    let error = null;
+    try {
+      await provider.getSession('s1');
+    } catch (e) {
+      error = e;
+    }
+    assert.equal(error?.code, code, JSON.stringify(response.body));
+  }
+  // Estado de sesión desconocido: no se da por caducado; se intenta leer igualmente.
+  await setupBank();
+  const provider = fakeProvider({ tx: { 'ext-1': [t({ ext: 'eb:1' })] }, session: { status: 'unknown', rawStatus: 'RETURNED_FROM_BANK', validUntil: NOW + 86_400_000 } });
+  const res = await sync(provider);
+  assert.equal(res.stats.added, 1);
+  // Y un error real deja su código para poder diagnosticarlo.
+  provider.failOn = { method: 'tx', error: new BankError('expired', { detail: 'EXPIRED_SESSION' }), times: 1 };
+  store.getState().movements.length = 0;
+  await assert.rejects(() => sync(provider));
+  assert.equal(store.getState().connections[0].lastError.detail, 'EXPIRED_SESSION');
+});
