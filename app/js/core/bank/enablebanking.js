@@ -149,7 +149,12 @@ export function createEnableBankingProvider({ appId, privateKey, proxyUrl = null
       if (response.ok) throw new BankError('bad_response');
     }
     if (response.ok) return data;
-    const detail = typeof data?.error === 'string' ? data.error : '';
+    // Código técnico para diagnosticar (sin datos personales): el «error» de la API o, si no lo
+    // trae, el estado HTTP y las primeras palabras del mensaje en mayúsculas.
+    const slug = typeof data?.message === 'string'
+      ? data.message.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 36)
+      : '';
+    const detail = typeof data?.error === 'string' && data.error ? data.error : `HTTP_${response.status}${slug ? `_${slug}` : ''}`;
     const retry = Number(response.headers.get('retry-after'));
     if (response.status === 429 || /RATE_LIMIT/.test(detail)) {
       throw new BankError('rate_limit', { detail, retryAfterMs: Number.isFinite(retry) && retry > 0 ? retry * 1000 : 6 * 3_600_000 });

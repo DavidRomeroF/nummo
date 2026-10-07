@@ -88,8 +88,17 @@ export async function beginConnect({ bankName, country = DEFAULT_COUNTRY, maxCon
   const provider = await getProvider();
   const state = newId(32);
   const days = Math.max(1, Math.min(MAX_CONSENT_DAYS, maxConsentDays || MAX_CONSENT_DAYS));
-  const validUntil = Date.now() + days * 86_400_000;
-  const { url } = await provider.startAuth({ bankName, country, redirectUrl: redirectUrl(), state, validUntil });
+  // Margen de 6 h bajo el máximo del banco: si el reloj del móvil va adelantado, pedir justo el
+  // máximo hace que el banco rechace la petición.
+  const until = (d) => Date.now() + Math.max(d * 86_400_000 - 6 * 3_600_000, 3_600_000);
+  let url;
+  try {
+    ({ url } = await provider.startAuth({ bankName, country, redirectUrl: redirectUrl(), state, validUntil: until(days) }));
+  } catch (error) {
+    // Algunos bancos admiten menos tiempo del que anuncian: se reintenta una vez con 30 días.
+    if (!(error instanceof BankError) || error.code !== 'invalid' || days <= 30) throw error;
+    ({ url } = await provider.startAuth({ bankName, country, redirectUrl: redirectUrl(), state, validUntil: until(30) }));
+  }
   const secrets = store.getSecrets() ?? {};
   await store.setSecrets({ ...secrets, pending: { state, bankName, country, at: Date.now(), reconnectId } });
   await store.flush();

@@ -31,9 +31,11 @@ import { openImportSheet, describeStats } from './import.js';
 const syncing = new Set(); // bancos sincronizándose ahora (para el estado en pantalla)
 const STATUS_TEXT = { active: 'Conectado', pending: 'Pendiente', expired: 'Permiso caducado', revoked: 'Permiso retirado', error: 'Revisar' };
 
-const errorMessage = (error) => (error instanceof BankError || error instanceof ValidationError || error instanceof KeyFormatError
-  ? error.message
-  : 'Ha ocurrido un error inesperado.');
+const errorMessage = (error) => {
+  if (error instanceof BankError) return error.detail ? `${error.message} (código: ${error.detail})` : error.message;
+  if (error instanceof ValidationError || error instanceof KeyFormatError) return error.message;
+  return 'Ha ocurrido un error inesperado.';
+};
 
 /** Texto de estado de un banco para listas y para Inicio. */
 export function connectionSummary(connection, now = Date.now()) {
